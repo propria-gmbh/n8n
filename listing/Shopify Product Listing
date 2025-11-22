@@ -1,0 +1,434 @@
+{
+  "name": "Shopify Product Listing",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "product",
+        "operation": "getAll",
+        "additionalFields": {
+          "collection_id": "663012082003"
+        }
+      },
+      "type": "n8n-nodes-base.shopify",
+      "typeVersion": 1,
+      "position": [
+        80,
+        304
+      ],
+      "id": "ed18639e-caca-4b3b-9524-124c6bad64af",
+      "name": "Get many products",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "dWJgimry1w55uTT3",
+          "name": "Shopify Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Split In Batches \n",
+        "height": 80,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1488,
+        16
+      ],
+      "typeVersion": 1,
+      "id": "54fcd617-3fef-4088-af3f-c4a6dbe034ad",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node: \"Prepare product for OpenAI (compact, per item)\"\n// Input: full Shopify product in $json\n// Output: { compactProduct: {...} } per item\n\nconst p = $json;\n\nconst MAX_TITLE_CHARS = 200;\nconst MAX_BODY_CHARS  = 4000;\n\nfunction safeString(v) {\n  if (v === undefined || v === null) return '';\n  return v.toString().trim();\n}\n\nfunction clamp(str, maxLen) {\n  if (str.length <= maxLen) return str;\n  return str.slice(0, maxLen);\n}\n\nlet title = clamp(safeString(p.title), MAX_TITLE_CHARS);\nlet body  = clamp(safeString(p.body_html), MAX_BODY_CHARS);\n\nconst compactProduct = {\n  shopifyProductId: p.id || p.shopifyProductId,\n  title,\n  body_html: body,\n  handle: safeString(p.handle),\n  tags: safeString(p.tags),\n  product_type: safeString(p.product_type),\n};\n\nreturn [{\n  json: { compactProduct }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ],
+      "id": "8fe9f933-b5b3-4abd-b826-a5291591cb15",
+      "name": "Prepare product for OpenAI"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node: \"Assemble Shopify Update (safe)\"\n// Input: { ai, product, optionMap, config }\n// Output: { error, productId, body }\n\ntry {\n  const ai = $json.ai || {};\n  const product = $json.product || {};\n  const optionMap = $json.optionMap || {};\n  const config = $json.config || {};\n\n  const productId = ai.shopifyProductId || product.id;\n  if (!productId) throw new Error(\"No productId\");\n\n  const targetLang = config.targetLang || \"US English\";\n  const vendor = config.vendorFixed || \"Charlie & Ted\";\n\n  const canonicalByRaw = optionMap.canonicalByRaw || {};\n  const localesByCanonical = optionMap.localesByCanonical || {};\n\n  function toCanonical(raw){\n    if (!raw) return null;\n    return canonicalByRaw[raw.toString().trim().toLowerCase()] || null;\n  }\n  function toTarget(raw){\n    const canon = toCanonical(raw);\n    if (!canon) return raw;\n    const loc = localesByCanonical[canon];\n    if (!loc) return raw;\n    return loc[targetLang] || raw;\n  }\n\n  const updateProduct = {\n    id: productId,\n    title: ai.title,\n    handle: ai.handle,\n    body_html: ai.body_html,\n    tags: ai.tags || \"\",\n    product_type: ai.product_type || \"\",\n    vendor,\n  };\n\n  if (Array.isArray(product.options)) {\n    updateProduct.options = product.options.map(opt => {\n      const newOpt = { ...opt };\n      if (Array.isArray(newOpt.values)) {\n        newOpt.values = newOpt.values.map(v => toTarget(v));\n      }\n      return newOpt;\n    });\n  }\n\n  if (Array.isArray(product.variants)) {\n    updateProduct.variants = product.variants.map(v => {\n      const nv = { ...v };\n      if (nv.option1) nv.option1 = toTarget(nv.option1);\n      if (nv.option2) nv.option2 = toTarget(nv.option2);\n      if (nv.option3) nv.option3 = toTarget(nv.option3);\n      return nv;\n    });\n  }\n\n  return [{\n    json: {\n      error: false,\n      productId,\n      body: { product: updateProduct }\n    }\n  }];\n\n} catch (e) {\n  return [{\n    json: {\n      error: true,\n      step: \"Assemble Shopify Update\",\n      message: e.message,\n      raw: $json\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        304
+      ],
+      "id": "c32ec722-b45d-4812-be46-5bb24e7ef8e2",
+      "name": "Assemble Shopify Update"
+    },
+    {
+      "parameters": {
+        "content": "## Trigger\n",
+        "height": 80,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        32,
+        -80
+      ],
+      "typeVersion": 1,
+      "id": "32d133ec-ede0-4d72-aa67-c9a3c3e1cd77",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        48,
+        64
+      ],
+      "id": "46e3858b-b8e6-4f2b-990c-6a239e9d4787",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "173O5ejvtbaN0LtfRtOprfkLs1rIEulB9DvT4sWKUkK8",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        448,
+        64
+      ],
+      "id": "e6743029-de49-43f9-bbe4-19e2ed15eeb8",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "0heFHQl1fGUAqofO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "xls",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        656,
+        64
+      ],
+      "id": "3f076650-9362-4676-ac7b-16d88d3ba2bf",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "// This Function takes rows extracted from the OptionMap file\n// and builds two dictionaries:\n//\n// 1) canonicalByRaw: raw_string (any language) → Canonical key\n// 2) localesByCanonical: Canonical key → translations in all languages\n//\n// This allows us to:\n// - Normalize ANY color/option string into a canonical form\n// - Then output it in ANY target language dynamically (via targetLang)\n\nconst rows = $input.all().map(i => i.json);\n\nconst canonicalByRaw = {};\nconst localesByCanonical = {};\n\nconst langColumns = [\n  \"US English\",\n  \"UK English\",\n  \"Italian\",\n  \"French\",\n  \"German\",\n  \"Swedish\",\n  \"Danish\",\n];\n\nfor (const row of rows) {\n  const canonical = (row[\"Canonical\"] || \"\").trim();\n  const type = (row[\"Type\"] || \"\").trim().toLowerCase();\n\n  if (!canonical || !type) continue;\n\n  // Build the locales structure\n  localesByCanonical[canonical] = {};\n\n  for (const col of langColumns) {\n    const val = (row[col] || \"\").trim();\n    localesByCanonical[canonical][col] = val;\n  }\n\n  // Reverse index: ANY raw value → canonical\n  for (const col of langColumns) {\n    const rawVal = (row[col] || \"\").trim();\n    if (!rawVal) continue;\n\n    canonicalByRaw[rawVal.toLowerCase()] = canonical;\n  }\n}\n\nreturn [\n  {\n    json: {\n      canonicalByRaw,\n      localesByCanonical,\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        64
+      ],
+      "id": "ed607b56-366b-4059-ac6c-d08b36a4b371",
+      "name": "Build Maps"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a top-5 US e-commerce expert for fashion dropshipping on Shopify + Meta Ads.\n\nYour task: using the compact Shopify product data below, generate NEW values for:\n- title\n- body_html\n- handle\n- tags\n- product_type\n\nIMPORTANT:\n- Do NOT modify product options or variants. They will be handled by code.\n- Do NOT output vendor. Vendor will always be set to \"Charlie & Ted\" in code.\n\nINPUT DATA (compact product JSON from previous Function node):\n{{ $json }}\n\nKEY FIELDS:\n- Current title: {{ $json[\"title\"] }}\n- Current description (HTML): {{ $json[\"body_html\"] }}\n- Current handle: {{ $json[\"handle\"] }}\n- Current tags: {{ $json[\"tags\"] }}\n- Product type: {{ $json[\"product_type\"] }}\n- Shopify numeric product ID (shopifyProductId): {{ $json[\"shopifyProductId\"] }}\n\nMARKET & STYLE RULES:\n- Market: United States. Language: US English. Currency: USD ($).\n- If source text is not English → translate first, then optimize.\n- Determine target as Women / Men / Unisex from input content. If unclear → Unisex.\n  - Women: warm, flattering, ease, soft feel.\n  - Men: practical, durable, comfort-first.\n  - Unisex: neutral, versatile.\n- Use only real specs (materials, sizing, care) from input; never invent missing technical details.\n- No storewide policies (shipping, returns, support).\n- No hard urgency (“while supplies last”, “sale ends today”).\n- No emojis. No bracketed tags like [Oversize].\n- Forbidden names: Coco, Chanel, Celine, Elara, Zara, Ami, Brioni, Chloé, Kenzo, Santoni, Tod, Vince, Zilli, Calvin.\n- Short sentences, skimmable.\n\nTITLE RULES:\n- Create a NEW high-converting title in US English.\n- The VERY FIRST WORD must be a human first name:\n  - feminine for Women’s products,\n  - masculine for Men’s products,\n  - gender-neutral for Unisex.\n- After the name include:\n  - product type (e.g., crossbody bag, winter boots, linen dress)\n  - 1–2 key benefits/features (e.g., cozy, waterproof, slim fit)\n- Max ~80 characters; no ALL CAPS except abbreviations.\n- No pricing, discount, shipping, or policy wording.\n\nHANDLE RULES:\n- The handle MUST equal the first name from the new title:\n  - lowercased,\n  - no spaces,\n  - no special characters.\n- Example:\n  - Title: “Ava Cozy Crossbody Bag”\n  - Handle: “ava”\n\nTAGS:\n- Tags MUST be ONLY ONE of:\n  - \"Damen\" (Women),\n  - \"Herren\" (Men),\n  - \"Unisex\" (Neutral / unclear).\n- Choose based on the product and description.\n\nDESCRIPTION TEMPLATE (FOLLOW EXACTLY):\n\n<h3>Emotional Hook</h3>\n<p>[1 short mood-setting line, matching target voice]</p>\n\n<h3>Description</h3>\n<p>[feel in wear, materials, fit, comfort, use-cases in US contexts like work, errands, weekends, travel; no invented specs]</p>\n\n<h3>[Benefits Heading: 2–6 words, e.g., \"Everyday Comfort & Style\"]</h3>\n<p>✓ [Benefit 1]</p>\n<p>✓ [Benefit 2]</p>\n<p>✓ [Benefit 3]</p>\n<p>✓ [Benefit 4]</p>\n\n<p><strong>[CTA, e.g.: “Select your size and add to cart.”]</strong></p>\n\nOUTPUT FORMAT (STRICT):\n- Return ONLY a single valid JSON object.\n- No explanatory text, no markdown, no comments.\n- Use double quotes for all keys and string values.\n- No trailing commas.\n- The field \"shopifyProductId\" MUST be copied from the input JSON field \"shopifyProductId\".\n\nOUTPUT JSON — RETURN ONLY THIS OBJECT AND NOTHING ELSE:\n\n{\n  \"shopifyProductId\": 0,\n  \"title\": \"\",\n  \"handle\": \"\",\n  \"body_html\": \"\",\n  \"tags\": \"\",\n  \"product_type\": \"\"\n}\n"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        384,
+        304
+      ],
+      "id": "10191cb6-dd4b-42bf-a51e-48eebf8dea0e",
+      "name": "Meta Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "B9IATT53OM1fRsAD",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3870c268-ba30-4dab-b3f8-540bc20cf687",
+              "name": "targetLang",
+              "value": "US English",
+              "type": "string"
+            },
+            {
+              "id": "b4c6ced2-d6dd-4804-8385-b911bfa8af54",
+              "name": "vendorFixed",
+              "value": "Charlie & Ted",
+              "type": "string"
+            },
+            {
+              "id": "30658db2-48a4-433e-b37f-751ad32444dd",
+              "name": "profile",
+              "value": "meta",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        256,
+        64
+      ],
+      "id": "805c3084-a812-470e-9690-ed969f28bd90",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "jsCode": "// This Function takes rows extracted from the OptionMap file\n// and builds two dictionaries:\n//\n// 1) canonicalByRaw: raw_string (any language) → Canonical key\n// 2) localesByCanonical: Canonical key → translations in all languages\n//\n// This allows us to:\n// - Normalize ANY color/option string into a canonical form\n// - Then output it in ANY target language dynamically (via targetLang)\n\nconst rows = $input.all().map(i => i.json);\n\nconst canonicalByRaw = {};\nconst localesByCanonical = {};\n\nconst langColumns = [\n  \"US English\",\n  \"UK English\",\n  \"Italian\",\n  \"French\",\n  \"German\",\n  \"Swedish\",\n  \"Danish\",\n];\n\nfor (const row of rows) {\n  const canonical = (row[\"Canonical\"] || \"\").trim();\n  const type = (row[\"Type\"] || \"\").trim().toLowerCase();\n\n  if (!canonical || !type) continue;\n\n  // Build the locales structure for this canonical value\n  localesByCanonical[canonical] = {\n    type, // color / size / option_name etc.\n  };\n\n  for (const col of langColumns) {\n    const val = (row[col] || \"\").trim();\n    localesByCanonical[canonical][col] = val;\n  }\n\n  // Reverse index: ANY raw value in ANY language → same canonical\n  for (const col of langColumns) {\n    const rawVal = (row[col] || \"\").trim();\n    if (!rawVal) continue;\n\n    canonicalByRaw[rawVal.toLowerCase()] = canonical;\n  }\n}\n\nreturn [\n  {\n    json: {\n      canonicalByRaw,\n      localesByCanonical,\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        64
+      ],
+      "id": "6af7c5a3-f78f-4d62-9727-68d653938e5c",
+      "name": "Build Option Maps"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ \"https://dca4de.myshopify.com/admin/api/2025-10/products/\" + $json[\"productId\"] + \".json\" }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyAccessTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json[\"body\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1264,
+        288
+      ],
+      "id": "5d28ae00-9520-4b08-b513-6007b33bd43b",
+      "name": "HTTP Request",
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "dWJgimry1w55uTT3",
+          "name": "Shopify Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node: \"Attach Context after AI\"\n// Input: AI response item ($json) + original products via $items()\n// Output: { ai, product, optionMap, config }\n\nlet ai = $json;\nif (ai.message && ai.message.content) ai = ai.message.content;\nif (typeof ai === \"string\") {\n  try { ai = JSON.parse(ai); } catch (e) {}\n}\n\nconst originalProduct = $items(\"Get many products\")[$itemIndex].json;\nconst optionMap = $items(\"Build Option Maps\")[0]?.json || {};\nconst config = $items(\"Config\")[0]?.json || {};\n\nreturn [{\n  json: {\n    ai,\n    product: originalProduct,\n    optionMap,\n    config\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        304
+      ],
+      "id": "88751cb7-ba5b-498a-9eef-6ca241df3eb5",
+      "name": "Attach Context"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json[\"error\"] }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        304
+      ],
+      "id": "1d5d8dab-c4f0-4f15-b0bc-b790f55ad883",
+      "name": "IF valid update"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get many products": {
+      "main": [
+        [
+          {
+            "node": "Prepare product for OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare product for OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Meta Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Build Maps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Maps": {
+      "main": [
+        [
+          {
+            "node": "Build Option Maps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta Message a model": {
+      "main": [
+        [
+          {
+            "node": "Attach Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Option Maps": {
+      "main": [
+        [
+          {
+            "node": "Get many products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Context": {
+      "main": [
+        [
+          {
+            "node": "Assemble Shopify Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Shopify Update": {
+      "main": [
+        [
+          {
+            "node": "IF valid update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF valid update": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "83c407d4-c534-48f6-bfd3-ffde4baa5ca5",
+  "meta": {
+    "instanceId": "874b8b595b8c35c6ad0480eb2e6d2c9dcb3d2674b017cfcfab20dbd92e7f9969"
+  },
+  "id": "zJzaKeU4e5rV9RPX",
+  "tags": []
+}
