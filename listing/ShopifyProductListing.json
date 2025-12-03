@@ -335,7 +335,7 @@
       "parameters": {
         "operation": "xls",
         "options": {
-          "sheetName": "Names"
+          "sheetName": "names"
         }
       },
       "type": "n8n-nodes-base.extractFromFile",
