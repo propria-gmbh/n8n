@@ -368,11 +368,11 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 2,
       "position": [
-        304,
-        304
+        -512,
+        640
       ],
       "id": "9cd87014-7ac5-45b6-b3c1-86e4b74a40e0",
-      "name": "Wait for Names"
+      "name": "Names Ready"
     },
     {
       "parameters": {
@@ -417,7 +417,7 @@
         [],
         [
           {
-            "node": "Pick Unique Name",
+            "node": "aiInput",
             "type": "main",
             "index": 0
           }
@@ -477,7 +477,7 @@
       "main": [
         [
           {
-            "node": "Wait for Names",
+            "node": "Get many products",
             "type": "main",
             "index": 0
           }
@@ -543,7 +543,7 @@
       "main": [
         [
           {
-            "node": "Pick Unique Name",
+            "node": "Names Ready",
             "type": "main",
             "index": 0
           }
@@ -605,20 +605,9 @@
       "main": [
         [
           {
-            "node": "Wait for Names",
+            "node": "Names Ready",
             "type": "main",
             "index": 1
-          }
-        ]
-      ]
-    },
-    "Wait for Names": {
-      "main": [
-        [
-          {
-            "node": "Get many products",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -628,6 +617,17 @@
         [
           {
             "node": "Meta Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Names Ready": {
+      "main": [
+        [
+          {
+            "node": "Pick Unique Name",
             "type": "main",
             "index": 0
           }
