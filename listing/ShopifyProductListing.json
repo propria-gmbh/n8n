@@ -86,6 +86,12 @@
               "name": "profile",
               "value": "meta",
               "type": "string"
+            },
+            {
+              "id": "998acaf1-47f7-4c4e-bc86-2be6b088617b",
+              "name": "compareAtMultiplier",
+              "value": "2.0",
+              "type": "number"
             }
           ]
         },
@@ -221,7 +227,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build Patch: sanitize placeholders + wrap for Shopify REST\nconst items = $input.all();\nconst AI_TAG = 'AI-Processed';\nconst WORKFLOW_VERSION = 'v0.3';\n\nfunction stripPlaceholders(html, mode) {\n  if (!html) return \"\";\n  let out = html;\n\n  if (mode === \"size\") {\n    out = out.replace(/<!--\\s*SIZE-CHART-PLACEHOLDER\\s*-->\\s*/gi, \"\");\n  }\n  if (mode === \"dims\") {\n    out = out.replace(/<!--\\s*DIMENSIONS-PLACEHOLDER\\s*-->\\s*/gi, \"\");\n  }\n  return out.trim();\n}\n\nfor (const item of items) {\n  const j = item.json;\n\n  if (j.patch?.skip) continue;\n  if (!j.patch?.product) {\n    j.patch = { skip: true, reason: \"No patch.product to sanitize\" };\n    continue;\n  }\n\n  const raw = j.raw || {};\n  const ai  = j.ai || {};\n  const loc = j.localized || {};\n  const minimal = j.patch.product;\n\n  // \u2705 Robust apparel detector: raw -> localized -> ai\n  const pt =\n    (raw.product_type || raw.productType ||\n     loc.product_type || ai.product_type || \"\")\n      .toString().toLowerCase();\n\n  const apparel =\n    j.canonical?.isApparel === true ||\n    /(dress|shirt|tee|hoodie|pants|jeans|skirt|jacket|coat|sweater|top|blouse|apparel|clothing)/i.test(pt);\n\n  let body = minimal.body_html || \"\";\n\n  if (apparel) {\n    body = stripPlaceholders(body, \"dims\");  // keep SIZE, remove DIMS\n  } else {\n    body = stripPlaceholders(body, \"size\");  // keep DIMS, remove SIZE\n  }\n\n  minimal.body_html = body;\n\n  const tagsSource =\n    (typeof minimal.tags === 'string' && minimal.tags.length)\n      ? minimal.tags\n      : (j.product?.tags ?? raw.tags ?? '');\n\n  const tags = (Array.isArray(tagsSource) ? tagsSource : tagsSource.split(','))\n    .map(t => (t || '').toString().trim())\n    .filter(Boolean);\n\n  if (!tags.includes(AI_TAG)) {\n    tags.push(AI_TAG);\n  }\n\n  minimal.tags = tags.join(', ');\n\n  const metafieldValue = `${WORKFLOW_VERSION}|${new Date().toISOString()}`;\n  const aiMetafield = {\n    namespace: 'automation',\n    key: 'ai_processed',\n    type: 'single_line_text_field',\n    value: metafieldValue,\n  };\n\n  // final REST envelope for Shopify PUT /products/{id}.json\n  j.patch.product = {\n    product: {\n      id: minimal.id,\n      title: minimal.title,\n      handle: minimal.handle,\n      body_html: minimal.body_html,\n      tags: minimal.tags,\n      product_type: minimal.product_type,\n      metafields: [aiMetafield],\n    }\n  };\n\n  // safety: no options/variants in patch\n  delete j.patch.product.product.options;\n  delete j.patch.product.product.variants;\n}\n\nreturn items;"
+        "jsCode": "// Build Patch: sanitize placeholders + wrap for Shopify REST\nconst items = $input.all();\nconst AI_TAG = 'AI-Processed';\nconst WORKFLOW_VERSION = 'v0.3';\n\nfunction stripPlaceholders(html, mode) {\n  if (!html) return '';\n  let out = html;\n\n  if (mode === 'size') {\n    out = out.replace(/<!--\\s*SIZE-CHART-PLACEHOLDER\\s*-->\\s*/gi, '');\n  }\n  if (mode === 'dims') {\n    out = out.replace(/<!--\\s*DIMENSIONS-PLACEHOLDER\\s*-->\\s*/gi, '');\n  }\n  return out.trim();\n}\n\nfor (const item of items) {\n  const j = item.json;\n\n  if (j.patch?.skip) continue;\n  if (!j.patch?.product) {\n    j.patch = { skip: true, reason: 'No patch.product to sanitize' };\n    continue;\n  }\n\n  const raw = j.raw || {};\n  const ai  = j.ai || {};\n  const loc = j.localized || {};\n  const minimal = j.patch.product;\n\n  const pt =\n    (raw.product_type || raw.productType ||\n     loc.product_type || ai.product_type || '')\n      .toString().toLowerCase();\n\n  const apparel =\n    j.canonical?.isApparel === true ||\n    /(dress|shirt|tee|hoodie|pants|jeans|skirt|jacket|coat|sweater|top|blouse|apparel|clothing)/i.test(pt);\n\n  let body = minimal.body_html || '';\n\n  if (apparel) {\n    body = stripPlaceholders(body, 'dims');\n  } else {\n    body = stripPlaceholders(body, 'size');\n  }\n\n  minimal.body_html = body;\n\n  const tagsSource =\n    (typeof minimal.tags === 'string' && minimal.tags.length)\n      ? minimal.tags\n      : (j.product?.tags ?? raw.tags ?? '');\n\n  const tags = (Array.isArray(tagsSource) ? tagsSource : tagsSource.split(','))\n    .map(t => (t || '').toString().trim())\n    .filter(Boolean);\n\n  if (!tags.includes(AI_TAG)) {\n    tags.push(AI_TAG);\n  }\n\n  minimal.tags = tags.join(', ');\n\n  const metafieldValue = `${WORKFLOW_VERSION}|${new Date().toISOString()}`;\n  const aiMetafield = {\n    namespace: 'automation',\n    key: 'ai_processed',\n    type: 'single_line_text_field',\n    value: metafieldValue,\n  };\n\n  const variantPayload = Array.isArray(j.pricing?.variants)\n    ? j.pricing.variants\n        .filter(v => v?.id && v?.compare_at_price)\n        .map(v => ({ id: v.id, compare_at_price: v.compare_at_price }))\n    : [];\n\n  j.patch.product = {\n    product: {\n      id: minimal.id,\n      title: minimal.title,\n      handle: minimal.handle,\n      body_html: minimal.body_html,\n      tags: minimal.tags,\n      product_type: minimal.product_type,\n      metafields: [aiMetafield],\n      ...(variantPayload.length ? { variants: variantPayload } : {})\n    }\n  };\n\n  delete j.patch.product.product.options;\n  if (!variantPayload.length) {\n    delete j.patch.product.product.variants;\n  }\n}\n\nreturn items;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -260,7 +266,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const j = item.json;\n\n  const raw = j.raw || {};\n  const ai  = j.ai  || {};\n  const loc = j.localized || {};\n\n  // --- \u0433\u0434\u0435 \u043b\u0435\u0436\u0438\u0442 \u0440\u0435\u0430\u043b\u044c\u043d\u044b\u0439 AI output ---\n  // \u0412 \u0442\u0432\u043e\u0451\u043c \u0444\u043b\u043e\u0443 AI-\u043d\u043e\u0434\u0430 \u0432\u043e\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442:\n  // item.json.message.content\n  // MapAI \u043f\u043e\u0442\u043e\u043c \u043a\u043b\u0430\u0434\u0451\u0442 \u044d\u0442\u043e \u0432 j.ai \u0438 j.localized\n  //\n  // \u041f\u043e\u044d\u0442\u043e\u043c\u0443 \u0442\u0443\u0442 \u0431\u0435\u0440\u0435\u043c \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u043e \u0443\u0441\u0442\u043e\u0439\u0447\u0438\u0432\u043e:\n  const aiOut =\n    loc.shopifyProductId ? loc :\n    ai.shopifyProductId  ? ai  :\n    (j.message && j.message.content) ? j.message.content :\n    null;\n\n  j.aiValidation = { ok: true, errors: [], warnings: [] };\n\n  if (!aiOut || typeof aiOut !== \"object\") {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\"AI output missing or not an object\");\n    j.patch = { skip: true, reason: \"AI validation failed\" };\n    continue;\n  }\n\n  // --- productId \u0438\u0437 \u0432\u0445\u043e\u0434\u0430 (\u0438\u0437 aiInput) ---\n  const inputId =\n    (j.aiInput && (j.aiInput.shopifyProductId || j.aiInput.id)) ||\n    raw.id ||\n    j.shopifyProductId;\n\n  if (inputId && aiOut.shopifyProductId && Number(aiOut.shopifyProductId) !== Number(inputId)) {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\n      `shopifyProductId mismatch (ai=${aiOut.shopifyProductId}, input=${inputId})`\n    );\n  }\n\n  // --- \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 body_html \u043f\u043e \u0448\u0430\u0431\u043b\u043e\u043d\u0443 ---\n  const body = (aiOut.body_html || \"\").toString();\n\n  const hasKeyBenefits = body.includes(\"<h3>Key Benefits</h3>\");\n  if (!hasKeyBenefits) {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\"body_html missing heading: <h3>Key Benefits</h3>\");\n  }\n\n  // \u041f\u0440\u043e\u0432\u0435\u0440\u044f\u0435\u043c, \u0447\u0442\u043e \u0432\u0442\u043e\u0440\u043e\u0439 H3 \u043e\u0434\u0438\u043d \u0438\u0437 \u0434\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u044b\u0445\n  const secondH3Allowed = [\n    \"<h3>Details</h3>\",\n    \"<h3>The Fit & Feel</h3>\",\n    \"<h3>Design Highlights</h3>\"\n  ].some(h => body.includes(h));\n\n  if (!secondH3Allowed) {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\"body_html missing valid second heading\");\n  }\n\n  // --- Title & handle guardrails ---\n  const requiredName = (j.generatedName || '').toString().trim();\n  if (requiredName) {\n    const title = (aiOut.title || '').toString().trim();\n    const requiredPrefix = `${requiredName} | `;\n    if (!title.startsWith(requiredPrefix)) {\n      j.aiValidation.ok = false;\n      j.aiValidation.errors.push(`title must start with \"${requiredPrefix}\"`);\n    }\n\n    const expectedHandle = requiredName\n      .toLowerCase()\n      .replace(/[^a-z0-9]/g, '');\n    const handle = (aiOut.handle || '').toString().trim();\n    if (handle !== expectedHandle) {\n      j.aiValidation.ok = false;\n      j.aiValidation.errors.push(`handle must equal lowercase first name (${expectedHandle})`);\n    }\n  }\n\n  // --- placeholder rules ---\n  const hasSize = body.includes(\"<!-- SIZE-CHART-PLACEHOLDER -->\");\n  const hasDim  = body.includes(\"<!-- DIMENSIONS-PLACEHOLDER -->\");\n\n  // \u0437\u0434\u0435\u0441\u044c \u043c\u044f\u0433\u043a\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430: \u043d\u0435 \u0432\u0430\u043b\u0438\u043c, \u0442\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u0435\u0434\u0443\u043f\u0440\u0435\u0436\u0434\u0430\u0435\u043c\n  if (!hasSize && !hasDim) {\n    j.aiValidation.warnings.push(\"No placeholder marker included\");\n  }\n\n  // \u0435\u0441\u043b\u0438 \u043d\u0435 \u043e\u043a \u2014 \u0441\u0442\u0430\u0432\u0438\u043c skip\n  if (!j.aiValidation.ok) {\n    j.patch = { skip: true, reason: \"AI validation failed\" };\n  } else {\n    // \u043a\u043b\u0430\u0434\u0435\u043c \u043d\u043e\u0440\u043c\u0430\u043b\u0438\u0437\u043e\u0432\u0430\u043d\u043d\u044b\u0439 aiOut \u0432 j.ai \u0434\u043b\u044f \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0445 \u043d\u043e\u0434\n    j.ai = aiOut;\n  }\n}\n\nreturn items;\n"
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const j = item.json;\n\n  const raw = j.raw || {};\n  const ai  = j.ai  || {};\n  const loc = j.localized || {};\n\n  // --- \u0433\u0434\u0435 \u043b\u0435\u0436\u0438\u0442 \u0440\u0435\u0430\u043b\u044c\u043d\u044b\u0439 AI output ---\n  // \u0412 \u0442\u0432\u043e\u0451\u043c \u0444\u043b\u043e\u0443 AI-\u043d\u043e\u0434\u0430 \u0432\u043e\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442:\n  // item.json.message.content\n  // MapAI \u043f\u043e\u0442\u043e\u043c \u043a\u043b\u0430\u0434\u0451\u0442 \u044d\u0442\u043e \u0432 j.ai \u0438 j.localized\n  //\n  // \u041f\u043e\u044d\u0442\u043e\u043c\u0443 \u0442\u0443\u0442 \u0431\u0435\u0440\u0435\u043c \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u043e \u0443\u0441\u0442\u043e\u0439\u0447\u0438\u0432\u043e:\n  const aiOut =\n    loc.shopifyProductId ? loc :\n    ai.shopifyProductId  ? ai  :\n    (j.message && j.message.content) ? j.message.content :\n    null;\n\n  j.aiValidation = { ok: true, errors: [], warnings: [] };\n\n  if (!aiOut || typeof aiOut !== \"object\") {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\"AI output missing or not an object\");\n    j.patch = { skip: true, reason: \"AI validation failed\" };\n    continue;\n  }\n\n  if (j.aiError) {\n    j.patch = { skip: true, reason: j.aiError.type || 'ai_error' };\n    continue;\n  }\n\n// --- productId \u0438\u0437 \u0432\u0445\u043e\u0434\u0430 (\u0438\u0437 aiInput) ---\n  const inputId =\n    (j.aiInput && (j.aiInput.shopifyProductId || j.aiInput.id)) ||\n    raw.id ||\n    j.shopifyProductId;\n\n  if (inputId && aiOut.shopifyProductId && Number(aiOut.shopifyProductId) !== Number(inputId)) {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\n      `shopifyProductId mismatch (ai=${aiOut.shopifyProductId}, input=${inputId})`\n    );\n  }\n\n  // --- \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 body_html \u043f\u043e \u0448\u0430\u0431\u043b\u043e\u043d\u0443 ---\n  const body = (aiOut.body_html || \"\").toString();\n\n  const hasKeyBenefits = body.includes(\"<h3>Key Benefits</h3>\");\n  if (!hasKeyBenefits) {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\"body_html missing heading: <h3>Key Benefits</h3>\");\n  }\n\n  // \u041f\u0440\u043e\u0432\u0435\u0440\u044f\u0435\u043c, \u0447\u0442\u043e \u0432\u0442\u043e\u0440\u043e\u0439 H3 \u043e\u0434\u0438\u043d \u0438\u0437 \u0434\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u044b\u0445\n  const secondH3Allowed = [\n    \"<h3>Details</h3>\",\n    \"<h3>The Fit & Feel</h3>\",\n    \"<h3>Design Highlights</h3>\"\n  ].some(h => body.includes(h));\n\n  if (!secondH3Allowed) {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\"body_html missing valid second heading\");\n  }\n\n  // --- Title & handle guardrails ---\n  const requiredName = (j.generatedName || '').toString().trim();\n  if (requiredName) {\n    const title = (aiOut.title || '').toString().trim();\n    const requiredPrefix = `${requiredName} | `;\n    if (!title.startsWith(requiredPrefix)) {\n      j.aiValidation.ok = false;\n      j.aiValidation.errors.push(`title must start with \"${requiredPrefix}\"`);\n    }\n\n    const expectedHandle = requiredName\n      .toLowerCase()\n      .replace(/[^a-z0-9]/g, '');\n    const handle = (aiOut.handle || '').toString().trim();\n    if (handle !== expectedHandle) {\n      j.aiValidation.ok = false;\n      j.aiValidation.errors.push(`handle must equal lowercase first name (${expectedHandle})`);\n    }\n  }\n\n\n  const multiplierCfg = Number(j.config?.compareAtMultiplier || j.pricing?.multiplier || 0);\n  if (multiplierCfg > 0 && j.pricing && !j.pricing.applied) {\n    j.aiValidation.warnings.push('Compare-at multiplier was not applied to variants');\n  }\n\n  // --- placeholder rules ---\n  const hasSize = body.includes(\"<!-- SIZE-CHART-PLACEHOLDER -->\");\n  const hasDim  = body.includes(\"<!-- DIMENSIONS-PLACEHOLDER -->\");\n\n  // \u0437\u0434\u0435\u0441\u044c \u043c\u044f\u0433\u043a\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430: \u043d\u0435 \u0432\u0430\u043b\u0438\u043c, \u0442\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u0435\u0434\u0443\u043f\u0440\u0435\u0436\u0434\u0430\u0435\u043c\n  if (!hasSize && !hasDim) {\n    j.aiValidation.warnings.push(\"No placeholder marker included\");\n  }\n\n  // \u0435\u0441\u043b\u0438 \u043d\u0435 \u043e\u043a \u2014 \u0441\u0442\u0430\u0432\u0438\u043c skip\n  if (!j.aiValidation.ok) {\n    j.patch = { skip: true, reason: \"AI validation failed\" };\n  } else {\n    // \u043a\u043b\u0430\u0434\u0435\u043c \u043d\u043e\u0440\u043c\u0430\u043b\u0438\u0437\u043e\u0432\u0430\u043d\u043d\u044b\u0439 aiOut \u0432 j.ai \u0434\u043b\u044f \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0445 \u043d\u043e\u0434\n    j.ai = aiOut;\n  }\n}\n\nreturn items;\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -372,6 +378,34 @@
       ],
       "id": "deffacbc-ce56-4dff-9a3b-901da488bd87",
       "name": "Pick Unique Name"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $input.all();\n\nconst detectType = (message = '') => {\n  const text = message.toLowerCase();\n  if (text.includes('context') && text.includes('length')) return 'ai_context_length';\n  if (text.includes('insufficient') || text.includes('quota')) return 'ai_quota';\n  if (text.includes('rate limit')) return 'ai_rate_limit';\n  if (text.includes('timeout')) return 'ai_timeout';\n  return 'ai_error';\n};\n\nfor (const item of items) {\n  const j = item.json || {};\n  const errorObj = j.error || j.responseError || j.lastError || null;\n  const message = (errorObj?.message || j.errorMessage || '').toString();\n  const statusCode = errorObj?.status || j.statusCode || null;\n  const usage = j.message?.usage || j.usage || null;\n\n  if (!errorObj && !j.errorMessage && !j.lastError && !j.statusCodeError) {\n    continue;\n  }\n\n  const type = detectType(message);\n  j.aiError = {\n    type,\n    message: message || 'Unknown AI error',\n    statusCode,\n    usage,\n  };\n\n  j.patch = { skip: true, reason: type };\n  j.errorLog = {\n    productId: j.aiInput?.shopifyProductId || j.raw?.id || null,\n    type,\n    message: j.aiError.message,\n    statusCode,\n    usage,\n    timestamp: new Date().toISOString()\n  };\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        640
+      ],
+      "id": "a99a1531-f94a-4a85-9bcc-bc8426eb40c8",
+      "name": "Check AI Errors"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $input.all();\n\nconst toNumber = (value, fallback = null) => {\n  const num = Number(value);\n  return Number.isFinite(num) ? num : fallback;\n};\n\nfor (const item of items) {\n  const j = item.json || {};\n  const cfg = j.config || {};\n  const multiplierRaw = cfg.compareAtMultiplier ?? cfg.compare_at_multiplier;\n  const multiplier = toNumber(multiplierRaw, 2) || 2;\n\n  const variants = Array.isArray(j.raw?.variants) ? j.raw.variants : [];\n  const adjusted = [];\n\n  for (const variant of variants) {\n    const basePrice = toNumber(variant?.price);\n    if (!Number.isFinite(basePrice)) continue;\n    const comparePrice = (basePrice * multiplier).toFixed(2);\n    adjusted.push({\n      id: variant?.id,\n      price: basePrice.toFixed(2),\n      compare_at_price: comparePrice,\n    });\n  }\n\n  j.pricing = {\n    multiplier,\n    variants: adjusted,\n    applied: adjusted.length > 0,\n  };\n\n  if (!j.pricing.applied) {\n    j.pricing.warning = 'No variants to adjust or invalid prices';\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        640
+      ],
+      "id": "e40857d3-7e01-4896-94df-67b0addc82ff",
+      "name": "Adjust Pricing"
     }
   ],
   "pinData": {},
@@ -391,7 +425,7 @@
       "main": [
         [
           {
-            "node": "Validate AI Output",
+            "node": "Check AI Errors",
             "type": "main",
             "index": 0
           }
@@ -518,7 +552,7 @@
       "main": [
         [
           {
-            "node": "Build Patch",
+            "node": "Adjust Pricing",
             "type": "main",
             "index": 0
           }
@@ -592,6 +626,28 @@
         [
           {
             "node": "Meta Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check AI Errors": {
+      "main": [
+        [
+          {
+            "node": "Validate AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adjust Pricing": {
+      "main": [
+        [
+          {
+            "node": "Build Patch",
             "type": "main",
             "index": 0
           }
