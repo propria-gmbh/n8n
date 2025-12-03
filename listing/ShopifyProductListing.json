@@ -362,20 +362,6 @@
     },
     {
       "parameters": {
-        "mode": "passThrough",
-        "output": "input1"
-      },
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 2,
-      "position": [
-        -512,
-        640
-      ],
-      "id": "9cd87014-7ac5-45b6-b3c1-86e4b74a40e0",
-      "name": "Names Ready"
-    },
-    {
-      "parameters": {
         "jsCode": "// Assign a unique first name per product based on pools\nconst items = $input.all();\nconst resolveStaticData = () => {\n  if (typeof $getWorkflowStaticData === 'function') {\n    return $getWorkflowStaticData('global');\n  }\n  if (typeof getWorkflowStaticData === 'function') {\n    return getWorkflowStaticData('global');\n  }\n  if (typeof globalThis !== 'undefined') {\n    if (typeof globalThis.$getWorkflowStaticData === 'function') {\n      return globalThis.$getWorkflowStaticData('global');\n    }\n    if (typeof globalThis.getWorkflowStaticData === 'function') {\n      return globalThis.getWorkflowStaticData('global');\n    }\n  }\n  throw new Error('Workflow static data helpers unavailable in this Code node runtime.');\n};\nconst staticData = resolveStaticData();\nconst pools = staticData.namePools || {};\nlet history = Array.isArray(staticData.recentNameHistory) ? [...staticData.recentNameHistory] : [];\nconst maxHistory = 50;\n\nconst normalize = (str = '') => str.toString().trim();\nconst toKey = (str = '') => normalize(str).toLowerCase();\nlet recentSet = new Set(history.map(toKey));\n\nconst detectGender = (payload = {}) => {\n  const collect = [\n    payload.product_type,\n    payload.productType,\n    payload.title,\n    payload.tags,\n    payload.body_html,\n    payload.bodyHtml,\n  ].map(x => (x || '').toString().toLowerCase());\n  const blob = collect.join(' ');\n  if (/unisex|genderless|all gender|uni\b/.test(blob)) return 'unisex';\n  if (/(men's|mens|men\b|male|herr|herren)/.test(blob)) return 'men';\n  if (/(women's|womens|women|female|damen|frau)/.test(blob)) return 'women';\n  return 'women';\n};\n\nconst pickFromBuckets = (buckets) => {\n  for (const bucket of buckets) {\n    const list = pools[bucket] || [];\n    for (const candidate of list) {\n      if (!recentSet.has(toKey(candidate))) {\n        return candidate;\n      }\n    }\n  }\n  return null;\n};\n\nfor (const item of items) {\n  const j = item.json || {};\n  const raw = j.raw || {};\n  const gender = detectGender(raw);\n  const order = gender === 'men'\n    ? ['men', 'unisex', 'women']\n    : gender === 'unisex'\n      ? ['unisex', 'women', 'men']\n      : ['women', 'unisex', 'men'];\n\n  const selected = pickFromBuckets(order);\n\n  if (!selected) {\n    j.generatedName = null;\n    j.patch = { skip: true, reason: 'name_pool_exhausted' };\n    j.aiValidation = { ok: false, errors: ['Name pool exhausted'], warnings: [] };\n    continue;\n  }\n\n  j.generatedName = selected;\n  history = [selected, ...history.filter(n => toKey(n) !== toKey(selected))];\n  if (history.length > maxHistory) {\n    history = history.slice(0, maxHistory);\n  }\n  recentSet = new Set(history.map(toKey));\n}\n\nstaticData.recentNameHistory = history;\nreturn items;"
       },
       "type": "n8n-nodes-base.code",
@@ -543,7 +529,7 @@
       "main": [
         [
           {
-            "node": "Names Ready",
+            "node": "Pick Unique Name",
             "type": "main",
             "index": 0
           }
@@ -601,33 +587,11 @@
         ]
       ]
     },
-    "Build Name Pools": {
-      "main": [
-        [
-          {
-            "node": "Names Ready",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
     "Pick Unique Name": {
       "main": [
         [
           {
             "node": "Meta Message a model",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Names Ready": {
-      "main": [
-        [
-          {
-            "node": "Pick Unique Name",
             "type": "main",
             "index": 0
           }
