@@ -177,7 +177,7 @@
         "resource": "product",
         "operation": "getAll",
         "additionalFields": {
-          "collection_id": "664621351251"
+          "collection_id": "663012082003"
         }
       },
       "type": "n8n-nodes-base.shopify",
