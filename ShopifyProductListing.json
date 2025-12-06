@@ -1,0 +1,669 @@
+{
+  "name": "Shopify Meta Product Listing v.1.50",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        304
+      ],
+      "id": "5c7dd5b5-22c3-4be9-8262-fb4e432dcf55",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a top-tier US e-commerce expert for fashion dropshipping on Shopify + Meta Ads with 10+ years of experience.\nAlways return ONLY a valid JSON object, no explanations or markdown.\nNever hallucinate materials, features, product types, or specs that do not exist.\n\nYou receive compact product data in aiInput.\n\n=====================================================\nTASK:\nUsing aiInput, generate NEW high-converting values for the US market:\n\n\"title\"\n\"handle\"\n\"body_html\"\n\"tags\"\n\"product_type\"\n\nDO NOT EDIT:\n- product options or variants\n- prices\n- vendor\n- images\n- any IDs\n\n=====================================================\nCRITICAL CONSTRAINTS (DO NOT BREAK):\n\n1. NEVER invent a different product.\n2. Product category MUST stay identical to input.\n   If input is footwear → output footwear.\n   If input is apparel → output apparel.\n   If input is a bag/accessory → output a bag/accessory.\n\n3. \"product_type\" must stay in the same category and close in meaning to input.\n   Use Title Case (e.g. \"Midi Dress\", not \"dress\").\n\n4. \"shopifyProductId\" MUST be copied exactly from aiInput.\n\n5. Use only real features/specs present in the input description.\n   Do NOT create materials, lining, padding, stitching, closures, heel height, etc. if not found.\n\n=====================================================\nINPUT DATA:\n{{ JSON.stringify($json.aiInput) }}\n\n=====================================================\nMARKET & STYLE RULES:\n\n- Market: United States\n- Language: US English\n- Currency: USD ($)\n\nIf input text is not in English → translate first, then optimize.\n\nGENDER:\nDetermine Women / Men / Unisex from product_type + description only.\n\nTONE:\nShort sentences. Skimmable. Native US consumer wording.\nNo emojis. No urgency. No storewide policies.\n\nBANNED NAMES:\nDo not use these names anywhere:\nCoco, Chanel, Celine, Elara, Zara, Ami, Brioni, Chloé, Kenzo, Santoni, Tod, Vince, Zilli, Calvin.\n\n=====================================================\nTITLE RULES:\n\nDYNAMIC NAME REQUIREMENT (STRICT):\n- Use exactly this first name as the very first word: {{ $json.generatedName }}\n- Handle must match that name in lowercase, no spaces or special characters.\n\n- Title must follow this exact format: <FirstName> | <product type + 1-2 key benefits>.\n  • Include the literal pipe character surrounded by spaces (\" | \").\n  • Example: \"Naomi | cashmere midi dress with side slit\".\n\n- The VERY FIRST WORD must be a human first name:\n  • feminine for Women’s products  \n  • masculine for Men’s  \n  • gender-neutral for Unisex  \n\n- The chosen name must NOT appear in the input title.\n- Do NOT reuse any name/brand from the input.\n- After the first name, include:\n  • SAME product category/type as input  \n  • 1–2 key benefits/features  \n\n- Use singular (e.g. “midi dress”, “sweater”, “handbag”).\n- Max ~80 characters.\n- No pricing, shipping, policies, emojis, or caps-lock (except abbreviations).\n\n=====================================================\nHANDLE RULES:\n- EXACTLY the first name from the title\n- lowercased\n- no spaces\n- no special characters\n\n=====================================================\nTAGS RULES:\nChoose EXACTLY ONE:\n\n\"damen\"\n\"herren\"\n\"unisex\"\n\n=====================================================\nDESCRIPTION STRUCTURE (STRICT, NO EXCEPTIONS)\n\nYou MUST follow this exact block order.\nYou MAY vary the allowed H3 variants, nothing else.\n\nAllowed H3 for FIRST section (choose ONE):\n- \"Why You’ll Love It\"\n- \"What Makes It Special\"\n- \"Made for Your Moments\"\n\nAllowed H3 for SECOND section (choose ONE):\n- \"Details\"\n- \"The Fit & Feel\"\n- \"Design Highlights\"\n\nTHIRD section H3 (MANDATORY EXACT):\n- \"Key Benefits\"\n\nFINAL section:\n- CTA paragraph (strong tag)\n\nDo NOT add any other headings or paragraphs.\n\n=======================================\nTEMPLATE (STRICT)\n=======================================\n\n<h3>[H3 Variant #1]</h3>\n<p>[1 short emotional benefit line]</p>\n\n<h3>[H3 Variant #2]</h3>\n<p>[real details: feel, movement, fit, use-cases; no invented specs]</p>\n\n<h3>Key Benefits</h3>\n<p>✓ [Benefit 1]</p>\n<p>✓ [Benefit 2]</p>\n<p>✓ [Benefit 3]</p>\n<p>✓ [Benefit 4]</p>\n\n<p><strong>[Short CTA, e.g. “Select your size and add to cart.”]</strong></p>\n\n=====================================================\nPLACEHOLDERS (STRICT — INVISIBLE)\n\nAppend placeholders ONLY as HTML comments.\nThey must be invisible, placed on their own lines.\nThey must appear ONLY at the VERY END after the CTA paragraph.\n\nAllowed placeholder strings (EXACT):\n\n<!-- SIZE-CHART-PLACEHOLDER -->\n<!-- DIMENSIONS-PLACEHOLDER -->\n\nRULES:\n- If product is apparel → output ONLY:\n  <!-- SIZE-CHART-PLACEHOLDER -->\n\n- If product is non-apparel → output ONLY:\n  <!-- DIMENSIONS-PLACEHOLDER -->\n\nNever output both.\nNever mention size charts or dimensions visibly.\n\n=====================================================\nOUTPUT FORMAT\nReturn ONLY this JSON object:\n\n{\n  \"shopifyProductId\": {{ $json.aiInput[\"shopifyProductId\"] }},\n  \"title\": \"\",\n  \"handle\": \"\",\n  \"body_html\": \"\",\n  \"tags\": \"\",\n  \"product_type\": \"\"\n}\n\n"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.6,
+          "topP": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -432,
+        640
+      ],
+      "id": "7b941632-1244-49d4-ba96-62401d4028d1",
+      "name": "Meta Message a model",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "B9IATT53OM1fRsAD",
+          "name": "OpenAi account 2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -832,
+        640
+      ],
+      "id": "461c38a6-be37-4fdb-b090-f8fc32403844",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3870c268-ba30-4dab-b3f8-540bc20cf687",
+              "name": "targetLang",
+              "value": "US English",
+              "type": "string"
+            },
+            {
+              "id": "b4c6ced2-d6dd-4804-8385-b911bfa8af54",
+              "name": "vendorFixed",
+              "value": "Charlie & Ted",
+              "type": "string"
+            },
+            {
+              "id": "30658db2-48a4-433e-b37f-751ad32444dd",
+              "name": "profile",
+              "value": "meta",
+              "type": "string"
+            },
+            {
+              "id": "998acaf1-47f7-4c4e-bc86-2be6b088617b",
+              "name": "compareAtMultiplier",
+              "value": "2.0",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -656,
+        304
+      ],
+      "id": "248b95d7-1bd4-4aec-927c-d78898f1d57c",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "173O5ejvtbaN0LtfRtOprfkLs1rIEulB9DvT4sWKUkK8",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -464,
+        304
+      ],
+      "id": "38af7080-e6ae-46cb-8649-cd3c99d56375",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "0heFHQl1fGUAqofO",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "xls",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        304
+      ],
+      "id": "109b253a-89de-43c2-a87e-a91ad5eec7ba",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "// This Function takes rows extracted from the OptionMap file\n// and builds two dictionaries:\n//\n// 1) canonicalByRaw: raw_string (any language) → Canonical key\n// 2) localesByCanonical: Canonical key → translations in all languages\n//\n// This allows us to:\n// - Normalize ANY color/option string into a canonical form\n// - Then output it in ANY target language dynamically (via targetLang)\n\nconst rows = $input.all().map(i => i.json);\n\nconst canonicalByRaw = {};\nconst localesByCanonical = {};\n\nconst langColumns = [\n  \"US English\",\n  \"UK English\",\n  \"Italian\",\n  \"French\",\n  \"German\",\n  \"Swedish\",\n  \"Danish\",\n];\n\nfor (const row of rows) {\n  const canonical = (row[\"Canonical\"] || \"\").trim();\n  const type = (row[\"Type\"] || \"\").trim().toLowerCase();\n\n  if (!canonical || !type) continue;\n\n  // Build the locales structure\n  localesByCanonical[canonical] = {};\n\n  for (const col of langColumns) {\n    const val = (row[col] || \"\").trim();\n    localesByCanonical[canonical][col] = val;\n  }\n\n  // Reverse index: ANY raw value → canonical\n  for (const col of langColumns) {\n    const rawVal = (row[col] || \"\").trim();\n    if (!rawVal) continue;\n\n    canonicalByRaw[rawVal.toLowerCase()] = canonical;\n  }\n}\n\nreturn [\n  {\n    json: {\n      canonicalByRaw,\n      localesByCanonical,\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        304
+      ],
+      "id": "37fb621e-5968-47a0-b0c5-cea83ec76133",
+      "name": "Build Maps"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Option Map (robust)\n// Mode: Run Once for All Items\n\nconst resolveStaticData = () => {\n  if (typeof $getWorkflowStaticData === 'function') {\n    return $getWorkflowStaticData('global');\n  }\n  if (typeof getWorkflowStaticData === 'function') {\n    return getWorkflowStaticData('global');\n  }\n  if (typeof globalThis !== 'undefined') {\n    if (typeof globalThis.$getWorkflowStaticData === 'function') {\n      return globalThis.$getWorkflowStaticData('global');\n    }\n    if (typeof globalThis.getWorkflowStaticData === 'function') {\n      return globalThis.getWorkflowStaticData('global');\n    }\n  }\n  throw new Error('Workflow static data helpers unavailable in this Code node runtime.');\n};\n\nconst rows = $input.all().map(i => i.json);\n\n// 0) Если на вход уже пришла готовая optionMap — просто возвращаем как есть\nif (\n  rows.length === 1 &&\n  rows[0] &&\n  rows[0].canonicalByRaw &&\n  rows[0].localesByCanonical\n) {\n  const existing = rows[0];\n  try {\n    const staticData = resolveStaticData();\n    staticData.optionMap = {\n      canonicalByRaw: existing.canonicalByRaw,\n      localesByCanonical: existing.localesByCanonical,\n      updatedAt: new Date().toISOString(),\n    };\n  } catch (err) {\n    existing.staticDataWarning = err.message;\n  }\n  return [{ json: existing }];\n}\n\n// helper: найти колонку по regex (case-insensitive)\nfunction findCol(obj, regexList) {\n  const keys = Object.keys(obj || {});\n  for (const rx of regexList) {\n    const k = keys.find(x => rx.test(x));\n    if (k) return k;\n  }\n  return null;\n}\n\nconst canonicalByRaw = {};\nconst localesByCanonical = {};\n\n// возможные варианты названий колонок\nconst canonicalRegex = [/^canonical$/i, /canonical/i, /kanon/i];\nconst typeRegex      = [/^type$/i, /type/i, /gruppe/i, /kategorie/i];\n\n// языковые колонки — ищем по известным названиям, но тоже case-insensitive\nconst langColumns = [\n  \"US English\",\n  \"UK English\",\n  \"Italian\",\n  \"French\",\n  \"German\",\n  \"Swedish\",\n  \"Danish\",\n];\n\n// 1) определяем реальные имена колонок по первой строке\nconst sample = rows[0] || {};\nconst canonicalCol = findCol(sample, canonicalRegex);\nconst typeCol = findCol(sample, typeRegex);\n\n// если не нашли — вернём пустые карты, но с понятной ошибкой\nif (!canonicalCol || !typeCol) {\n  return [{\n    json: {\n      canonicalByRaw: {},\n      localesByCanonical: {},\n      error: true,\n      message: `Columns not found. canonicalCol=${canonicalCol}, typeCol=${typeCol}`,\n      sampleKeys: Object.keys(sample),\n    }\n  }];\n}\n\nfor (const row of rows) {\n  const canonical = (row[canonicalCol] || \"\").toString().trim();\n  const type = (row[typeCol] || \"\").toString().trim().toLowerCase();\n  if (!canonical || !type) continue;\n\n  if (!localesByCanonical[canonical]) {\n    localesByCanonical[canonical] = { type };\n  }\n\n  for (const col of langColumns) {\n    // ищем колонку языка тоже без учёта регистра\n    const realLangCol =\n      Object.keys(row).find(k => k.toLowerCase() === col.toLowerCase()) || col;\n\n    const val = (row[realLangCol] || \"\").toString().trim();\n    localesByCanonical[canonical][col] = val;\n\n    if (val) {\n      canonicalByRaw[val.toLowerCase()] = canonical;\n    }\n  }\n}\n\nconst result = {\n  canonicalByRaw,\n  localesByCanonical,\n};\n\ntry {\n  const staticData = resolveStaticData();\n  staticData.optionMap = {\n    canonicalByRaw,\n    localesByCanonical,\n    updatedAt: new Date().toISOString(),\n  };\n} catch (err) {\n  result.staticDataWarning = err.message;\n}\n\nreturn [{\n  json: result\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        304
+      ],
+      "id": "d13b3b03-18c0-4afc-81b2-feaa49d6ccaf",
+      "name": "Build Option Maps"
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "product",
+        "operation": "getAll",
+        "additionalFields": {
+          "collection_id": "663012082003"
+        }
+      },
+      "type": "n8n-nodes-base.shopify",
+      "typeVersion": 1,
+      "position": [
+        432,
+        304
+      ],
+      "id": "b94a2a3e-f62f-43f1-9fae-1b8865610769",
+      "name": "Get many products",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "dWJgimry1w55uTT3",
+          "name": "Shopify Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Code node: Normalize Options to Canonical\n// Mode: Run Once for Each Item\n\nconst j = $json ?? {};\nconst raw = j.raw ?? {};\n\nconst toObj = (v) => (v && typeof v === \"object\" && !Array.isArray(v)) ? v : {};\nconst toArr = (v) => Array.isArray(v) ? v : [];\n\nconst canonical = toObj(j.canonical);\nconst optionMap = toObj(j.optionMap);\nconst config = toObj(j.config);\n\nconst cleanName = (s) => (s ?? \"\").toString().trim();\nconst cleanVal  = (s) => (s ?? \"\").toString().trim();\n\nconst canonicalLookupKey = (value = \"\") => {\n  if (value === null || value === undefined) return \"\";\n  return value\n    .toString()\n    .trim()\n    .toLowerCase();\n};\n\nconst stripDiacritics = (value = \"\") =>\n  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');\n\nconst normalizeKey = (value = \"\") => {\n  let base = canonicalLookupKey(value);\n  if (!base) return \"\";\n  base = base\n    .replace(/ä/g, 'ae')\n    .replace(/ö/g, 'oe')\n    .replace(/ü/g, 'ue')\n    .replace(/å/g, 'aa')\n    .replace(/æ/g, 'ae')\n    .replace(/œ/g, 'oe');\n  const withoutMarks = stripDiacritics(base);\n  return withoutMarks\n    .replace(/ß/g, 'ss')\n    .replace(/[^a-z0-9]/g, '');\n};\n\nconst canonicalByRaw = toObj(optionMap.canonicalByRaw);\nconst localesByCanonical = toObj(optionMap.localesByCanonical);\nconst hasLocaleMap =\n  Object.keys(canonicalByRaw).length > 0 &&\n  Object.keys(localesByCanonical).length > 0;\n\nconst targetLang = cleanName(config.targetLang || \"US English\") || \"US English\";\n\nconst isRealValue = (v) => {\n  const x = cleanVal(v);\n  if (!x) return false;\n  if (/^default title$/i.test(x)) return false;\n  return true;\n};\n\nconst translateCanonicalValue = (canonicalKey, fallback) => {\n  if (!canonicalKey) return fallback;\n  const localeEntry = localesByCanonical[canonicalKey] || {};\n  const localized =\n    localeEntry[targetLang] ||\n    localeEntry[\"US English\"] ||\n    canonicalKey;\n  return cleanVal(localized || fallback);\n};\n\nconst translateRawValue = (rawValue) => {\n  if (!hasLocaleMap) return rawValue;\n  const key = canonicalLookupKey(rawValue);\n  const canonicalKey = canonicalByRaw[key];\n  if (!canonicalKey) return rawValue;\n  return translateCanonicalValue(canonicalKey, rawValue);\n};\n\nconst detectTypeFromValue = (rawValue) => {\n  if (!hasLocaleMap) return null;\n  const key = canonicalLookupKey(rawValue);\n  const canonicalKey = canonicalByRaw[key];\n  if (!canonicalKey) return null;\n  const entry = localesByCanonical[canonicalKey] || {};\n  return cleanName(entry.type || entry.Type || \"\");\n};\n\nconst recordTypeVote = (bucket, typeLabel) => {\n  if (!typeLabel) return;\n  const key = normalizeKey(typeLabel);\n  if (!key) return;\n  if (!bucket[key]) {\n    bucket[key] = { count: 0, label: typeLabel };\n  }\n  bucket[key].count += 1;\n};\n\nconst pickDominantType = (bucket) => {\n  let winner = null;\n  for (const [key, info] of Object.entries(bucket)) {\n    if (!winner || info.count > bucket[winner].count) {\n      winner = key;\n    }\n  }\n  return winner ? bucket[winner].label : null;\n};\n\nconst nameDictionary = {\n  farbe: \"Color\",\n  colour: \"Color\",\n  color: \"Color\",\n  colors: \"Color\",\n  couleur: \"Color\",\n  grosse: \"Size\",\n  groesse: \"Size\",\n  groesen: \"Size\",\n  grose: \"Size\",\n  size: \"Size\",\n  sizes: \"Size\",\n  laenge: \"Length\",\n  lange: \"Length\",\n  breite: \"Width\",\n  hoehe: \"Height\",\n  hohe: \"Height\",\n  muster: \"Pattern\",\n  stil: \"Style\",\n  variante: \"Style\",\n  variation: \"Style\",\n  material: \"Material\",\n  dimension: \"Dimensions\",\n  dimensionen: \"Dimensions\",\n  taste: \"Flavor\",\n  geschmack: \"Flavor\",\n  duft: \"Scent\",\n  scent: \"Scent\",\n};\n\nconst typeLabelDictionary = {\n  color: \"Color\",\n  colours: \"Color\",\n  colour: \"Color\",\n  size: \"Size\",\n  sizes: \"Size\",\n  material: \"Material\",\n  pattern: \"Pattern\",\n  style: \"Style\",\n  design: \"Style\",\n  fit: \"Fit\",\n  length: \"Length\",\n  width: \"Width\",\n  height: \"Height\",\n  dimension: \"Dimensions\",\n  dimensions: \"Dimensions\",\n  flavor: \"Flavor\",\n  taste: \"Flavor\",\n  scent: \"Scent\",\n};\n\nconst translateOptionName = (originalName, detectedType) => {\n  const labelFromName = nameDictionary[normalizeKey(originalName)];\n  const labelFromType = typeLabelDictionary[normalizeKey(detectedType)];\n  return labelFromName || labelFromType || originalName;\n};\n\nlet rawOptions = toArr(raw.options)\n  .map(o => ({\n    name: cleanName(o?.name),\n    position: Number(o?.position ?? 0),\n    values: toArr(o?.values).map(cleanVal).filter(isRealValue),\n    id: o?.id\n  }))\n  .filter(o => o.name);\n\nconst rawVariants = toArr(raw.variants);\n\nif (rawOptions.length === 0 && rawVariants.length > 0) {\n  const inferred = [];\n  for (let i = 1; i <= 3; i++) {\n    const key = `option${i}`;\n    const vals = rawVariants\n      .map(v => v?.[key])\n      .map(cleanVal)\n      .filter(isRealValue);\n\n    if (vals.length) {\n      inferred.push({\n        name: `Option ${i}`,\n        position: i,\n        values: [...new Set(vals)],\n        id: null,\n      });\n    }\n  }\n  rawOptions = inferred;\n}\n\nconst valueTranslations = {};\nconst optionRenames = [];\n\nconst canonicalOptions = rawOptions\n  .sort((a,b)=>a.position-b.position)\n  .map((o, idx) => {\n    const typeVotes = {};\n    const translatedValues = o.values.map(val => {\n      const detectedType = detectTypeFromValue(val);\n      recordTypeVote(typeVotes, detectedType);\n      const translated = translateRawValue(val);\n      const key = canonicalLookupKey(val);\n      if (key && translated) {\n        valueTranslations[key] = translated;\n      }\n      return translated;\n    });\n\n    const detectedType = pickDominantType(typeVotes);\n    const localizedName = translateOptionName(o.name, detectedType);\n\n    if (\n      o.id &&\n      localizedName &&\n      localizedName !== o.name\n    ) {\n      optionRenames.push({\n        id: o.id,\n        position: idx + 1,\n        originalName: o.name,\n        name: localizedName,\n      });\n    }\n\n    return {\n      id: o.id,\n      name: localizedName,\n      originalName: o.name,\n      position: idx + 1,\n      values: translatedValues\n    };\n  });\n\nconst optionsForPatch = canonicalOptions\n  .map((canon, idx) => {\n    const source = rawOptions[idx] || {};\n    const id = source?.id ?? canon?.id ?? null;\n    if (!id || !canon?.name) return null;\n    return {\n      id,\n      position: canon.position ?? source.position ?? idx + 1,\n      name: canon.name,\n      originalName: source.name,\n    };\n  })\n  .filter(Boolean);\n\nconst canonVariants = rawVariants.map(v => {\n  const optionValues = [];\n  const optionsObj = {};\n\n  for (let i = 0; i < canonicalOptions.length; i++) {\n    const pos = i + 1;\n    const val = cleanVal(v?.[`option${pos}`]);\n\n    if (isRealValue(val)) {\n      const key = canonicalLookupKey(val);\n      const translated = valueTranslations[key] || translateRawValue(val);\n      const canonVal = translated || val;\n      const canonName  = canonicalOptions[i].name;\n\n      optionValues.push(canonVal);\n      optionsObj[canonName] = canonVal;\n    }\n  }\n\n  return {\n    id: v?.id,\n    sku: v?.sku ?? null,\n    price: v?.price ?? null,\n    compare_at_price: v?.compare_at_price ?? null,\n    inventory_quantity: v?.inventory_quantity ?? null,\n    options: optionsObj,\n    optionValues\n  };\n});\n\ncanonical.options  = canonicalOptions;\ncanonical.variants = canonVariants;\ncanonical.optionNames = canonicalOptions.map(o => o.name);\n\nif (optionRenames.length) {\n  canonical.optionRenames = optionRenames;\n} else {\n  delete canonical.optionRenames;\n}\n\nreturn {\n  json: {\n    ...j,\n    canonical,\n    optionMap,\n    optionRenames,\n    optionsForPatch,\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        304
+      ],
+      "id": "fecbfcff-d1aa-4d67-8b30-97c393eddb9e",
+      "name": "Normalize Options to Canonical"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Code node: Init Layers\n// Mode: Run Once for Each Item\n\nconst j = $json ?? {};\n\nconst resolveStaticData = () => {\n  if (typeof $getWorkflowStaticData === 'function') {\n    return $getWorkflowStaticData('global');\n  }\n  if (typeof getWorkflowStaticData === 'function') {\n    return getWorkflowStaticData('global');\n  }\n  if (typeof globalThis !== 'undefined') {\n    if (typeof globalThis.$getWorkflowStaticData === 'function') {\n      return globalThis.$getWorkflowStaticData('global');\n    }\n    if (typeof globalThis.getWorkflowStaticData === 'function') {\n      return globalThis.getWorkflowStaticData('global');\n    }\n  }\n  throw new Error('Workflow static data helpers unavailable in this Code node runtime.');\n};\n\n// 1) Resolve raw product source safely\n// Priority: explicit raw -> explicit product -> full json\nconst rawSource =\n  (j.raw && typeof j.raw === \"object\")  ? j.raw :\n  (j.product && typeof j.product === \"object\") ? j.product :\n  j;\n\n// 2) Merge/normalize layers from any nesting level\nconst canonical = (j.canonical ?? rawSource.canonical ?? {});\nconst ai        = (j.ai ?? rawSource.ai ?? {});\nconst localized = (j.localized ?? rawSource.localized ?? {});\nconst patch     = (j.patch ?? rawSource.patch ?? {});\n\n// Ensure layers are plain objects (not arrays/null/primitives)\nconst toObj = (v) => (v && typeof v === \"object\" && !Array.isArray(v)) ? v : {};\nconst safeCanonical = toObj(canonical);\nconst safeAi        = toObj(ai);\nconst safeLocalized = toObj(localized);\nconst safePatch     = toObj(patch);\n\n// 3) Carry optionMap/config from anywhere, keep objects\nlet optionMap = toObj(j.optionMap ?? rawSource.optionMap ?? {});\nconst config    = toObj(j.config    ?? rawSource.config    ?? {});\n\nif (!Object.keys(optionMap).length) {\n  try {\n    const staticData = resolveStaticData();\n    if (staticData && typeof staticData.optionMap === 'object') {\n      optionMap = toObj(staticData.optionMap);\n    }\n  } catch (err) {\n    // No static option map available — continue gracefully\n  }\n}\n\n// 4) Detect sourceType reliably\n// If Shopify product: has admin_graphql_api_id OR variants array typical of Shopify payload\nconst isShopify =\n  !!rawSource.admin_graphql_api_id ||\n  (Array.isArray(rawSource.variants) && rawSource.variants.length >= 0);\n\nconst sourceType = j.sourceType ?? (isShopify ? \"shopify\" : \"competitor\");\n\n// 5) Return layered structure\nreturn {\n  json: {\n    raw: rawSource,\n    canonical: safeCanonical,\n    ai: safeAi,\n    localized: safeLocalized,\n    patch: safePatch,\n    optionMap,\n    config,\n    sourceType,\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        304
+      ],
+      "id": "4d5d5257-61b6-4048-bcac-09a7097c7381",
+      "name": "Init Layers"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Patch: sanitize placeholders + wrap for Shopify REST\nconst items = $input.all();\nconst AI_TAG = 'AI-Processed';\nconst WORKFLOW_VERSION = 'v0.3';\n\nfunction stripPlaceholders(html, mode) {\n  if (!html) return '';\n  let out = html;\n\n  if (mode === 'size') {\n    out = out.replace(/<!--\\s*SIZE-CHART-PLACEHOLDER\\s*-->\\s*/gi, '');\n  }\n  if (mode === 'dims') {\n    out = out.replace(/<!--\\s*DIMENSIONS-PLACEHOLDER\\s*-->\\s*/gi, '');\n  }\n  return out.trim();\n}\n\nfor (const item of items) {\n  const j = item.json;\n\n  if (j.patch?.skip) continue;\n  if (!j.patch?.product) {\n    j.patch = { skip: true, reason: 'No patch.product to sanitize' };\n    continue;\n  }\n\n  const raw = j.raw || {};\n  const ai  = j.ai || {};\n  const loc = j.localized || {};\n  const minimal = j.patch.product;\n\n  const pt =\n    (raw.product_type || raw.productType ||\n     loc.product_type || ai.product_type || '')\n      .toString().toLowerCase();\n\n  const apparel =\n    j.canonical?.isApparel === true ||\n    /(dress|shirt|tee|hoodie|pants|jeans|skirt|jacket|coat|sweater|top|blouse|apparel|clothing)/i.test(pt);\n\n  let body = minimal.body_html || '';\n\n  if (apparel) {\n    body = stripPlaceholders(body, 'dims');\n  } else {\n    body = stripPlaceholders(body, 'size');\n  }\n\n  minimal.body_html = body;\n\n  const tagsSource =\n    (typeof minimal.tags === 'string' && minimal.tags.length)\n      ? minimal.tags\n      : (j.product?.tags ?? raw.tags ?? '');\n\n  const tags = (Array.isArray(tagsSource) ? tagsSource : tagsSource.split(','))\n    .map(t => (t || '').toString().trim())\n    .filter(Boolean);\n\n  if (!tags.includes(AI_TAG)) {\n    tags.push(AI_TAG);\n  }\n\n  minimal.tags = tags.join(', ');\n\n  const metafieldValue = `${WORKFLOW_VERSION}|${new Date().toISOString()}`;\n  const aiMetafield = {\n    namespace: 'automation',\n    key: 'ai_processed',\n    type: 'single_line_text_field',\n    value: metafieldValue,\n  };\n\n  const variantPayload = Array.isArray(j.pricing?.variants)\n    ? j.pricing.variants\n        .filter(v => v?.id && v?.compare_at_price)\n        .map(v => ({ id: v.id, compare_at_price: v.compare_at_price }))\n    : [];\n\n  const optionPayload = Array.isArray(minimal.options)\n    ? minimal.options.filter(o => o && o.id && o.name)\n    : [];\n\n  j.patch.product = {\n    product: {\n      id: minimal.id,\n      title: minimal.title,\n      handle: minimal.handle,\n      body_html: minimal.body_html,\n      tags: minimal.tags,\n      product_type: minimal.product_type,\n      metafields: [aiMetafield],\n      ...(optionPayload.length ? { options: optionPayload } : {}),\n      ...(variantPayload.length ? { variants: variantPayload } : {})\n    }\n  };\n\n  if (!variantPayload.length) {\n    delete j.patch.product.product.variants;\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        640
+      ],
+      "id": "07b4e58c-5c4b-410e-8eef-639a495cf167",
+      "name": "Build Patch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map AI -> localized (+ patch draft) + productId\nconst items = $input.all();\n\nfor (const item of items) {\n  const j = item.json;\n\n  j.localized = j.localized || {};\n  j.patch = j.patch || {};\n\n  // If validator said skip OR no ai => skip downstream\n  if (j.aiValidation?.ok === false || j.patch.skip || !j.ai || !j.ai.title) {\n    j.patch = { skip: true, reason: j.patch.reason || \"AI validation failed\" };\n    continue;\n  }\n\n  const ai = j.ai;\n  const raw = j.raw || {};\n\n  // reliable productId for URL\n  const productId = raw.id || ai.shopifyProductId || ai.id;\n  if (!productId) {\n    j.patch = { skip: true, reason: \"No productId found in raw/ai\" };\n    continue;\n  }\n  j.productId = productId;\n\n  const optionRenames = Array.isArray(j.optionRenames)\n    ? j.optionRenames\n        .filter(o => o && o.id && o.name && o.originalName && o.name !== o.originalName)\n        .map(o => ({\n          id: o.id,\n          name: o.name,\n          originalName: o.originalName,\n          position: o.position,\n        }))\n    : [];\n\n  const optionsForPatch = Array.isArray(j.optionsForPatch)\n    ? j.optionsForPatch.filter(o => o && o.id && o.name)\n    : [];\n\n  j.optionRenames = optionRenames;\n  j.optionsForPatch = optionsForPatch;\n\n  const optionsPayload = optionsForPatch.length\n    ? optionsForPatch.map(o => ({ id: o.id, name: o.name, position: o.position }))\n    : optionRenames.map(o => ({ id: o.id, name: o.name, position: o.position }));\n\n  const localized = {\n    shopifyProductId: productId,\n    title: ai.title,\n    handle: ai.handle,\n    body_html: ai.body_html,\n    tags: ai.tags,\n    product_type: ai.product_type,\n    ...(optionsForPatch.length ? { options: optionsForPatch } : optionRenames.length ? { options: optionRenames } : {}),\n  };\n\n  j.localized = localized;\n\n  // patch.product — MINIMAL fields only (no envelope yet)\n  j.patch = {\n    product: {\n      id: productId,\n      title: ai.title,\n      handle: ai.handle,\n      body_html: ai.body_html,\n      tags: ai.tags,\n      product_type: ai.product_type,\n      ...(optionsPayload.length ? { options: optionsPayload } : {}),\n    }\n  };\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        640
+      ],
+      "id": "ccbd7f69-ded9-416e-9660-55a20cf18a2a",
+      "name": "Map AI"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node before AI: Build aiInput\nconst r = $json.raw;\nconst c = $json.canonical;\n\nconst aiInput = {\n  shopifyProductId: r.id,   // <-- добавили\n  id: r.id,                 // можно оставить для совместимости\n  title: r.title,\n  handle: r.handle,\n  vendor: r.vendor,\n  product_type: r.product_type,\n  tags: r.tags,\n  body_html: r.body_html,\n  options: (r.options || []).map(o => ({ name: o.name, values: o.values })),\n  images: (r.images || []).slice(0, 2).map(i => ({ src: i.src, alt: i.alt })),\n  canonical: {\n    options: c.options,\n    optionNames: c.optionNames\n  }\n};\n\nreturn {\n  json: {\n    ...$json,\n    aiInput\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        640
+      ],
+      "id": "eb80208e-2b98-480a-8f07-7a7b6004f5b1",
+      "name": "aiInput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const j = item.json;\n\n  const raw = j.raw || {};\n  const ai  = j.ai  || {};\n  const loc = j.localized || {};\n\n  // --- где лежит реальный AI output ---\n  // В твоём флоу AI-нода возвращает:\n  // item.json.message.content\n  // MapAI потом кладёт это в j.ai и j.localized\n  //\n  // Поэтому тут берем максимально устойчиво:\n  const aiOut =\n    loc.shopifyProductId ? loc :\n    ai.shopifyProductId  ? ai  :\n    (j.message && j.message.content) ? j.message.content :\n    null;\n\n  j.aiValidation = { ok: true, errors: [], warnings: [] };\n\n  if (!aiOut || typeof aiOut !== \"object\") {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\"AI output missing or not an object\");\n    j.patch = { skip: true, reason: \"AI validation failed\" };\n    continue;\n  }\n\n  if (j.aiError) {\n    j.patch = { skip: true, reason: j.aiError.type || 'ai_error' };\n    continue;\n  }\n\n// --- productId из входа (из aiInput) ---\n  const inputId =\n    (j.aiInput && (j.aiInput.shopifyProductId || j.aiInput.id)) ||\n    raw.id ||\n    j.shopifyProductId;\n\n  if (inputId && aiOut.shopifyProductId && Number(aiOut.shopifyProductId) !== Number(inputId)) {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\n      `shopifyProductId mismatch (ai=${aiOut.shopifyProductId}, input=${inputId})`\n    );\n  }\n\n  // --- проверки body_html по шаблону ---\n  const body = (aiOut.body_html || \"\").toString();\n\n  const hasKeyBenefits = body.includes(\"<h3>Key Benefits</h3>\");\n  if (!hasKeyBenefits) {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\"body_html missing heading: <h3>Key Benefits</h3>\");\n  }\n\n  // Проверяем, что второй H3 один из допустимых\n  const secondH3Allowed = [\n    \"<h3>Details</h3>\",\n    \"<h3>The Fit & Feel</h3>\",\n    \"<h3>Design Highlights</h3>\"\n  ].some(h => body.includes(h));\n\n  if (!secondH3Allowed) {\n    j.aiValidation.ok = false;\n    j.aiValidation.errors.push(\"body_html missing valid second heading\");\n  }\n\n  // --- Title & handle guardrails ---\n  const requiredName = (j.generatedName || '').toString().trim();\n  if (requiredName) {\n    const title = (aiOut.title || '').toString().trim();\n    const requiredPrefix = `${requiredName} | `;\n    if (!title.startsWith(requiredPrefix)) {\n      j.aiValidation.ok = false;\n      j.aiValidation.errors.push(`title must start with \"${requiredPrefix}\"`);\n    }\n\n    const expectedHandle = requiredName\n      .toLowerCase()\n      .replace(/[^a-z0-9]/g, '');\n    const handle = (aiOut.handle || '').toString().trim();\n    if (handle !== expectedHandle) {\n      j.aiValidation.ok = false;\n      j.aiValidation.errors.push(`handle must equal lowercase first name (${expectedHandle})`);\n    }\n  }\n\n\n  const multiplierCfg = Number(j.config?.compareAtMultiplier || j.pricing?.multiplier || 0);\n  if (multiplierCfg > 0 && j.pricing && !j.pricing.applied) {\n    j.aiValidation.warnings.push('Compare-at multiplier was not applied to variants');\n  }\n\n  // --- placeholder rules ---\n  const hasSize = body.includes(\"<!-- SIZE-CHART-PLACEHOLDER -->\");\n  const hasDim  = body.includes(\"<!-- DIMENSIONS-PLACEHOLDER -->\");\n\n  // здесь мягкая проверка: не валим, только предупреждаем\n  if (!hasSize && !hasDim) {\n    j.aiValidation.warnings.push(\"No placeholder marker included\");\n  }\n\n  // если не ок — ставим skip\n  if (!j.aiValidation.ok) {\n    j.patch = { skip: true, reason: \"AI validation failed\" };\n  } else {\n    // кладем нормализованный aiOut в j.ai для следующих нод\n    j.ai = aiOut;\n  }\n}\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        640
+      ],
+      "id": "34408801-f535-46bb-827c-39ba836b5950",
+      "name": "Validate AI Output"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "760bd542-c2ca-46b6-abfe-448b6da3c41a",
+              "leftValue": "={{ $json.patch?.skip !== true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        640
+      ],
+      "id": "e6a4d98a-ffb8-4488-8753-3b6ea27256b0",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ \"https://dca4de.myshopify.com/admin/api/2025-10/products/\" + $json[\"productId\"] + \".json\" }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyAccessTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.patch.product}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        704,
+        640
+      ],
+      "id": "b93342cf-765d-4831-866f-49909c650d5a",
+      "name": "HTTP Request",
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "dWJgimry1w55uTT3",
+          "name": "Shopify Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "xls",
+        "options": {
+          "sheetName": "names"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        144
+      ],
+      "id": "2c3ebaa1-7f89-4a6d-9afd-b6c995a97b2d",
+      "name": "Extract Names"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build name pools from Names sheet\nconst rows = $input.all().map(item => item.json || {});\nconst pools = {\n  women: [],\n  men: [],\n  unisex: [],\n};\n\nconst pushUnique = (bucket, value) => {\n  if (!value) return;\n  const exists = pools[bucket].some(n => n.toLowerCase() === value.toLowerCase());\n  if (!exists) pools[bucket].push(value);\n};\n\nfor (const row of rows) {\n  const name = (row.name || row.Name || '').toString().trim();\n  if (!name) continue;\n  const genderRaw = (row.gender || row.Gender || '').toString().trim().toLowerCase();\n  let bucket = 'unisex';\n  if (/men|male|herr|masc/.test(genderRaw)) bucket = 'men';\n  else if (/uni|all|neutral/.test(genderRaw)) bucket = 'unisex';\n  else if (/women|female|frau|damen/.test(genderRaw)) bucket = 'women';\n  else if (!genderRaw) bucket = 'unisex';\n  else bucket = 'women';\n  pushUnique(bucket, name);\n}\n\nconst resolveStaticData = () => {\n  if (typeof $getWorkflowStaticData === 'function') {\n    return $getWorkflowStaticData('global');\n  }\n  if (typeof getWorkflowStaticData === 'function') {\n    return getWorkflowStaticData('global');\n  }\n  if (typeof globalThis !== 'undefined') {\n    if (typeof globalThis.$getWorkflowStaticData === 'function') {\n      return globalThis.$getWorkflowStaticData('global');\n    }\n    if (typeof globalThis.getWorkflowStaticData === 'function') {\n      return globalThis.getWorkflowStaticData('global');\n    }\n  }\n  throw new Error('Workflow static data helpers unavailable in this Code node runtime.');\n};\nconst staticData = resolveStaticData();\nstaticData.namePools = pools;\nif (!Array.isArray(staticData.recentNameHistory)) {\n  staticData.recentNameHistory = [];\n}\n\nreturn [{ json: { namePools: pools } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        144
+      ],
+      "id": "e5a94f1c-8a8b-4f25-8c74-6a3f9fe13d51",
+      "name": "Build Name Pools"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Assign a unique first name per product based on pools\nconst items = $input.all();\nconst resolveStaticData = () => {\n  if (typeof $getWorkflowStaticData === 'function') {\n    return $getWorkflowStaticData('global');\n  }\n  if (typeof getWorkflowStaticData === 'function') {\n    return getWorkflowStaticData('global');\n  }\n  if (typeof globalThis !== 'undefined') {\n    if (typeof globalThis.$getWorkflowStaticData === 'function') {\n      return globalThis.$getWorkflowStaticData('global');\n    }\n    if (typeof globalThis.getWorkflowStaticData === 'function') {\n      return globalThis.getWorkflowStaticData('global');\n    }\n  }\n  throw new Error('Workflow static data helpers unavailable in this Code node runtime.');\n};\nconst staticData = resolveStaticData();\nconst pools = staticData.namePools || {};\nlet history = Array.isArray(staticData.recentNameHistory) ? [...staticData.recentNameHistory] : [];\nconst maxHistory = 50;\n\nconst normalize = (str = '') => str.toString().trim();\nconst toKey = (str = '') => normalize(str).toLowerCase();\nlet recentSet = new Set(history.map(toKey));\n\nconst detectGender = (payload = {}) => {\n  const collect = [\n    payload.product_type,\n    payload.productType,\n    payload.title,\n    payload.tags,\n    payload.body_html,\n    payload.bodyHtml,\n  ].map(x => (x || '').toString().toLowerCase());\n  const blob = collect.join(' ');\n  if (/unisex|genderless|all gender|uni\b/.test(blob)) return 'unisex';\n  if (/(men's|mens|men\b|male|herr|herren)/.test(blob)) return 'men';\n  if (/(women's|womens|women|female|damen|frau)/.test(blob)) return 'women';\n  return 'women';\n};\n\nconst pickFromBuckets = (buckets) => {\n  for (const bucket of buckets) {\n    const list = pools[bucket] || [];\n    for (const candidate of list) {\n      if (!recentSet.has(toKey(candidate))) {\n        return candidate;\n      }\n    }\n  }\n  return null;\n};\n\nfor (const item of items) {\n  const j = item.json || {};\n  const raw = j.raw || {};\n  const gender = detectGender(raw);\n  const order = gender === 'men'\n    ? ['men', 'unisex', 'women']\n    : gender === 'unisex'\n      ? ['unisex', 'women', 'men']\n      : ['women', 'unisex', 'men'];\n\n  const selected = pickFromBuckets(order);\n\n  if (!selected) {\n    j.generatedName = null;\n    j.patch = { skip: true, reason: 'name_pool_exhausted' };\n    j.aiValidation = { ok: false, errors: ['Name pool exhausted'], warnings: [] };\n    continue;\n  }\n\n  j.generatedName = selected;\n  history = [selected, ...history.filter(n => toKey(n) !== toKey(selected))];\n  if (history.length > maxHistory) {\n    history = history.slice(0, maxHistory);\n  }\n  recentSet = new Set(history.map(toKey));\n}\n\nstaticData.recentNameHistory = history;\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        640
+      ],
+      "id": "deffacbc-ce56-4dff-9a3b-901da488bd87",
+      "name": "Pick Unique Name"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const toPlainObject = (value) => {\n  if (value && typeof value === 'object' && !Array.isArray(value)) {\n    return value;\n  }\n  return { value };\n};\n\nconst toSafeJson = (value) => JSON.parse(JSON.stringify(toPlainObject(value)));\n\nconst detectType = (message = '') => {\n  const text = message.toLowerCase();\n  if (text.includes('context') && text.includes('length')) return 'ai_context_length';\n  if (text.includes('insufficient') || text.includes('quota')) return 'ai_quota';\n  if (text.includes('rate limit')) return 'ai_rate_limit';\n  if (text.includes('timeout')) return 'ai_timeout';\n  return 'ai_error';\n};\n\nconst j = toPlainObject($json);\nconst errorObj = j.error || j.responseError || j.lastError || null;\nconst message = (errorObj?.message || j.errorMessage || '').toString();\nconst statusCode = errorObj?.status || j.statusCode || null;\nconst usage = j.message?.usage || j.usage || null;\n\nif (!errorObj && !j.errorMessage && !j.lastError && !j.statusCodeError) {\n  return { json: toSafeJson(j) };\n}\n\nconst type = detectType(message);\nj.aiError = {\n  type,\n  message: message || 'Unknown AI error',\n  statusCode,\n  usage,\n};\n\nj.patch = { skip: true, reason: type };\nj.errorLog = {\n  productId: j.aiInput?.shopifyProductId || j.raw?.id || null,\n  type,\n  message: j.aiError.message,\n  statusCode,\n  usage,\n  timestamp: new Date().toISOString()\n};\n\nreturn { json: toSafeJson(j) };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        640
+      ],
+      "id": "a99a1531-f94a-4a85-9bcc-bc8426eb40c8",
+      "name": "Check AI Errors"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const toPlainObject = (value) => {\n  if (value && typeof value === 'object' && !Array.isArray(value)) {\n    return value;\n  }\n  return { value };\n};\n\nconst cloneForResult = (value) => JSON.parse(JSON.stringify(value));\n\nconst toNumber = (value, fallback = null) => {\n  const num = Number(value);\n  return Number.isFinite(num) ? num : fallback;\n};\n\nconst item = toPlainObject($json);\nconst cfg = toPlainObject(item.config);\nconst raw = toPlainObject(item.raw);\n\nconst multiplierSource = cfg.compareAtMultiplier ?? cfg.compare_at_multiplier;\nconst multiplier = toNumber(multiplierSource, 2) || 2;\n\nconst variants = Array.isArray(raw.variants) ? raw.variants : [];\nconst adjusted = [];\n\nfor (const variant of variants) {\n  const basePrice = toNumber(variant?.price);\n  if (!Number.isFinite(basePrice)) continue;\n  adjusted.push({\n    id: variant?.id,\n    price: basePrice.toFixed(2),\n    compare_at_price: Math.round(basePrice * multiplier).toString(),\n  });\n}\n\nitem.pricing = {\n  multiplier,\n  variants: adjusted,\n  applied: adjusted.length > 0,\n};\n\nif (!item.pricing.applied) {\n  item.pricing.warning = 'No variants to adjust or invalid prices';\n}\n\nreturn { json: cloneForResult(item) };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        640
+      ],
+      "id": "e40857d3-7e01-4896-94df-67b0addc82ff",
+      "name": "Adjust Pricing"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta Message a model": {
+      "main": [
+        [
+          {
+            "node": "Check AI Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "aiInput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Names",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Build Maps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Maps": {
+      "main": [
+        [
+          {
+            "node": "Build Option Maps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Option Maps": {
+      "main": [
+        [
+          {
+            "node": "Get many products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many products": {
+      "main": [
+        [
+          {
+            "node": "Init Layers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Options to Canonical": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Layers": {
+      "main": [
+        [
+          {
+            "node": "Normalize Options to Canonical",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Patch": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map AI": {
+      "main": [
+        [
+          {
+            "node": "Adjust Pricing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aiInput": {
+      "main": [
+        [
+          {
+            "node": "Pick Unique Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate AI Output": {
+      "main": [
+        [
+          {
+            "node": "Map AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Names": {
+      "main": [
+        [
+          {
+            "node": "Build Name Pools",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Unique Name": {
+      "main": [
+        [
+          {
+            "node": "Meta Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check AI Errors": {
+      "main": [
+        [
+          {
+            "node": "Validate AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adjust Pricing": {
+      "main": [
+        [
+          {
+            "node": "Build Patch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5a0d12db-1f5e-463e-bd20-906fff5df1f7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "874b8b595b8c35c6ad0480eb2e6d2c9dcb3d2674b017cfcfab20dbd92e7f9969"
+  },
+  "id": "YqUMChMOluc1ktdD",
+  "tags": []
+}
