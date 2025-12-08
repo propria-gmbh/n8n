@@ -1,0 +1,22 @@
+{
+  "name": "shopify-image-webp-conversion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fetch Shopify products, convert product images to WebP, and log animated assets",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "ts-node --project tsconfig.json src/index.ts"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
