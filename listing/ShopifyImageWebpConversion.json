@@ -1,0 +1,349 @@
+{
+  "name": "Shopify Image → WebP Sync",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2432,
+        1040
+      ],
+      "id": "f5b8c529-efba-47b1-994a-d6192f4fef7e",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2208,
+        1040
+      ],
+      "id": "93a8c053-2f51-457d-90f3-1a1df75b76fe",
+      "name": "Workflow Settings"
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "product",
+        "operation": "getAll",
+        "additionalFields": {
+          "ids": "15476217020794"
+        }
+      },
+      "type": "n8n-nodes-base.shopify",
+      "typeVersion": 1,
+      "position": [
+        -1984,
+        1040
+      ],
+      "id": "bc128f3c-da13-4143-923a-0e29d8291d9e",
+      "name": "Get many products",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "oRuWNm3bO01woKfo",
+          "name": "Shopify Access Token Havgaard"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst settings = $node[\"Workflow Settings\"]?.json || {};\nconst maxProductsValue = Number(settings.maxProducts) || 0;\nconst webpQuality = Number(settings.webpQuality) || 80;\n\nconst outputs = [];\nlet processedProducts = 0;\n\nfor (const item of items) {\n  const product = item.json || {};\n  if (!product.id) continue;\n\n  processedProducts += 1;\n  if (maxProductsValue && processedProducts > maxProductsValue) break;\n\n  const images = Array.isArray(product.images) ? product.images : [];\n  for (const image of images) {\n    if (!image || !image.id || !image.src) continue;\n    outputs.push({\n      json: {\n        productId: product.id,\n        productHandle: product.handle || '',\n        productTitle: product.title || '',\n        imageId: image.id,\n        imageSrc: image.src,\n        imageAlt: image.alt || '',\n        webpQuality,\n        originalFormat: null,\n        message: null,\n        isAnimated: false\n      }\n    });\n  }\n}\n\nreturn outputs;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1760,
+        1040
+      ],
+      "id": "053c7e93-ce0f-42bf-a9cf-1c966e73fb44",
+      "name": "Flatten product images"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageSrc }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1536,
+        1040
+      ],
+      "id": "b6efcda6-8491-44ff-8504-7d2e7a43a578",
+      "name": "Download original image"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst isAnimatedGif = (buffer) => {\n  if (buffer.length < 4 || buffer.toString('ascii', 0, 3) !== 'GIF') return false;\n  let frames = 0;\n  for (let i = 0; i < buffer.length - 1; i++) {\n    if (buffer[i] === 0x21 && buffer[i + 1] === 0xF9) {\n      frames += 1;\n      if (frames > 1) return true;\n    }\n  }\n  return false;\n};\n\nconst isAnimatedPng = (buffer) => {\n  if (buffer.length < 8 || buffer.toString('hex', 0, 8) !== '89504e470d0a1a0a') return false;\n  let offset = 8;\n  while (offset + 8 < buffer.length) {\n    const length = buffer.readUInt32BE(offset);\n    const type = buffer.toString('ascii', offset + 4, offset + 8);\n    if (type === 'acTL') return true;\n    offset += 12 + length;\n  }\n  return false;\n};\n\nconst isAnimatedWebP = (buffer) => {\n  if (buffer.length < 16 || buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WEBP') {\n    return false;\n  }\n  for (let i = 12; i < buffer.length - 3; i++) {\n    if (\n      buffer[i] === 0x41 &&\n      buffer[i + 1] === 0x4E &&\n      buffer[i + 2] === 0x49 &&\n      buffer[i + 3] === 0x4D\n    ) {\n      return true;\n    }\n  }\n  return false;\n};\n\nconst detectFormat = (buffer, mimeType = '') => {\n  if (mimeType) return mimeType;\n  const signature = buffer.toString('hex', 0, 4);\n  if (signature === 'ffd8ffe0' || signature === 'ffd8ffe1') return 'image/jpeg';\n  if (signature === '89504e47') return 'image/png';\n  if (buffer.toString('ascii', 0, 3) === 'GIF') return 'image/gif';\n  if (buffer.toString('ascii', 0, 4) === 'RIFF') return 'image/webp';\n  return 'application/octet-stream';\n};\n\nreturn items.map((item) => {\n  const imageData = item.binary?.original;\n  if (!imageData?.data) {\n    item.json.isAnimated = true;\n    item.json.message = 'Missing binary payload';\n    return item;\n  }\n\n  const buffer = Buffer.from(imageData.data, 'base64');\n  const format = detectFormat(buffer, imageData.mimeType);\n  const animated = isAnimatedGif(buffer) || isAnimatedPng(buffer) || isAnimatedWebP(buffer);\n\n  item.json.isAnimated = animated;\n  item.json.originalFormat = format;\n  item.json.originalSizeBytes = buffer.length;\n\n  if (animated) {\n    item.json.message = `Animated image detected (product ${item.json.productHandle || item.json.productId})`;\n  }\n\n  return item;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        1040
+      ],
+      "id": "88704163-9de0-4f9a-bf8b-1d5674813761",
+      "name": "Detect animation"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isAnimated }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              },
+              "id": "animated-condition"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1088,
+        1040
+      ],
+      "id": "b38b29fb-57c0-4ebb-be4f-8a9990e6b1cf",
+      "name": "Animated?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $input.all();\nreturn items.map(item => ({\n  json: {\n    status: 'skipped',\n    reason: 'animated',\n    productId: item.json.productId,\n    imageId: item.json.imageId,\n    message: item.json.message || 'Animated image skipped',\n    productHandle: item.json.productHandle\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        944
+      ],
+      "id": "4bf0c928-c2eb-448b-b410-fb5c4f2a256f",
+      "name": "Log animated skip"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ `https://${$node[\"Workflow Settings\"].json.shopDomain}/admin/api/${$node[\"Workflow Settings\"].json.apiVersion}/products/${$json.productId}/images/${$json.imageId}.json` }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyAccessTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"image\": { \"id\": $json.imageId, \"product_id\": $json.productId, \"filename\": \"{{ $binary.webp.fileName }}\", \"attachment\": \"{{ $binary.webp.data }}\", \"content_type\": \"image/webp\", \"alt\": \"{{ $json.imageAlt || '' }}\" } }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -640,
+        1136
+      ],
+      "id": "7cb03d75-e24c-45dc-aac5-a0ff059dfb0c",
+      "name": "Update Shopify image",
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "dWJgimry1w55uTT3",
+          "name": "Shopify Access Token Charlie&Ted"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst httpRequest = this?.helpers?.httpRequest;\nconst getSettings = () => {\n  const workflowItems = typeof $items === 'function' ? $items('Workflow Settings', 'main', 0) : null;\n  if (workflowItems?.length) {\n    return workflowItems[0]?.json || {};\n  }\n  return ($node?.['Workflow Settings']?.json) || {};\n};\n\nconst settings = getSettings();\nconst cloudName = settings.cloudinaryCloud || 'root';\nconst apiKey = settings.cloudinaryApiKey || '425135831691668';\nconst apiSecret = settings.cloudinaryApiSecret || '_XQrU97vlItfuA_mjZzGKG3mZZY';\n\nif (typeof httpRequest !== 'function') {\n  throw new Error('httpRequest helper unavailable in this Code node runtime');\n}\n\nconst endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;\nconst authHeader = 'Basic ' + Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');\n\nconst buildTransformedUrl = (baseUrl, qualityValue) => {\n  const qualitySegment = `f_webp,q_${qualityValue}`;\n  if (baseUrl.includes('/upload/')) {\n    return baseUrl.replace('/upload/', `/upload/${qualitySegment}/`);\n  }\n  const separator = baseUrl.includes('?') ? '&' : '?';\n  return `${baseUrl}${separator}f=webp&q=${qualityValue}`;\n};\n\nreturn Promise.all(\n  items.map(async (item) => {\n    if (item.json.isAnimated) {\n      return item;\n    }\n\n    const imageUrl = item.json.imageSrc;\n    if (!imageUrl) {\n      item.json.message = 'Missing imageSrc for Cloudinary conversion';\n      item.json.skipUpload = true;\n      return item;\n    }\n\n    const quality = Number(item.json.webpQuality || 80) || 80;\n    const publicId = `${(item.json.productHandle || 'product')}-${item.json.imageId}`;\n\n    const payload = {\n      file: imageUrl,\n      public_id: publicId,\n      overwrite: 'true',\n      invalidate: 'true',\n      format: 'webp',\n      quality: String(quality)\n    };\n\n    let uploadData;\n    try {\n      uploadData = await httpRequest.call(this, {\n        method: 'POST',\n        uri: endpoint,\n        headers: {\n          Authorization: authHeader\n        },\n        form: payload,\n        json: true\n      });\n    } catch (error) {\n      item.json.message = `Cloudinary upload failed: ${error.message}`;\n      item.json.cloudinaryError = error.message;\n      item.json.skipUpload = true;\n      item.json.webpSizeBytes = 0;\n      return item;\n    }\n\n    const assetUrl = uploadData.secure_url || uploadData.url;\n    if (!assetUrl) {\n      item.json.message = 'Cloudinary response missing secure_url';\n      item.json.skipUpload = true;\n      item.json.webpSizeBytes = 0;\n      return item;\n    }\n\n    const transformedUrl = buildTransformedUrl(assetUrl, quality);\n\n    let webpBuffer;\n    try {\n      const binaryResponse = await httpRequest.call(this, {\n        method: 'GET',\n        uri: transformedUrl,\n        encoding: null\n      });\n      webpBuffer = Buffer.from(binaryResponse);\n    } catch (error) {\n      item.json.message = `Cloudinary download failed: ${error.message}`;\n      item.json.skipUpload = true;\n      item.json.webpSizeBytes = 0;\n      return item;\n    }\n\n    item.binary = item.binary || {};\n    item.binary.webp = {\n      data: webpBuffer.toString('base64'),\n      mimeType: 'image/webp',\n      fileName: `${publicId}.webp`\n    };\n\n    item.json.webpSizeBytes = webpBuffer.length;\n    item.json.message = `Converted image ${item.json.imageId} via Cloudinary`;\n    item.json.skipUpload = false;\n\n    return item;\n  })\n);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        1136
+      ],
+      "id": "7acdedae-cdfa-42a8-bb9b-9c49b3af9cb4",
+      "name": "Convert via Cloudinary"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $input.all();\nreturn items.map(item => ({\n  json: {\n    status: 'updated',\n    productId: item.json.productId,\n    imageId: item.json.imageId,\n    productHandle: item.json.productHandle,\n    message: item.json.message || 'Converted to WebP and uploaded',\n    webpSizeBytes: item.json.webpSizeBytes\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        1136
+      ],
+      "id": "bc05c023-e920-4158-976c-c8fcbcccdd79",
+      "name": "Log successful upload"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        1040
+      ],
+      "id": "ed7bb43c-766f-4610-9019-86380a90c7bb",
+      "name": "Merge logs"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Workflow Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Settings": {
+      "main": [
+        [
+          {
+            "node": "Get many products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many products": {
+      "main": [
+        [
+          {
+            "node": "Flatten product images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten product images": {
+      "main": [
+        [
+          {
+            "node": "Download original image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download original image": {
+      "main": [
+        [
+          {
+            "node": "Detect animation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect animation": {
+      "main": [
+        [
+          {
+            "node": "Animated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Animated?": {
+      "main": [
+        [
+          {
+            "node": "Log animated skip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Convert via Cloudinary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log animated skip": {
+      "main": [
+        [
+          {
+            "node": "Merge logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Shopify image": {
+      "main": [
+        [
+          {
+            "node": "Log successful upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert via Cloudinary": {
+      "main": [
+        [
+          {
+            "node": "Update Shopify image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log successful upload": {
+      "main": [
+        [
+          {
+            "node": "Merge logs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8776fb99-d820-42e0-8d17-2c54d9df6333",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "874b8b595b8c35c6ad0480eb2e6d2c9dcb3d2674b017cfcfab20dbd92e7f9969"
+  },
+  "id": "jwrjHgcB0gn3IvHq",
+  "tags": []
+}
