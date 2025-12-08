@@ -24,7 +24,11 @@
             {
               "name": "apiVersion",
               "value": "2024-10"
-            }
+          },
+          {
+            "name": "cloudinaryCloud",
+            "value": "your-cloud-name"
+          }
           ],
           "number": [
             {
@@ -116,7 +120,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const sharp = require('sharp');\nconst items = $input.all();\n\nreturn Promise.all(items.map(async (item) => {\n  const imageData = item.binary?.original;\n\n  if (!imageData?.data) {\n    item.json.isAnimated = true;\n    item.json.message = 'Missing binary payload';\n    return item;\n  }\n\n  const buffer = Buffer.from(imageData.data, 'base64');\n  const metadata = await sharp(buffer, { animated: true }).metadata();\n  const animated = (metadata.pages || 1) > 1;\n  item.json.isAnimated = animated;\n  item.json.originalFormat = metadata.format || imageData.mimeType || null;\n\n  if (animated) {\n    item.json.message = `Animated image skipped (product ${item.json.productHandle || item.json.productId})`;\n    return item;\n  }\n\n  const quality = Number(item.json.webpQuality || 80) || 80;\n  const webpBuffer = await sharp(buffer, { animated: false }).webp({ quality }).toBuffer();\n  const fileNameBase = item.json.productHandle || item.json.productId || 'image';\n\n  item.binary = item.binary || {};\n  item.binary.webp = {\n    data: webpBuffer.toString('base64'),\n    mimeType: 'image/webp',\n    fileName: `${fileNameBase}-${item.json.imageId}.webp`\n  };\n  item.json.webpSizeBytes = webpBuffer.length;\n  item.json.message = `Converted image ${item.json.imageId} to WebP (${webpBuffer.length} bytes)`;\n  return item;\n}));"
+        "jsCode": "const items = $input.all();\n\nconst isAnimatedGif = (buffer) => {\n  if (buffer.length < 4 || buffer.toString('ascii', 0, 3) !== 'GIF') return false;\n  let frames = 0;\n  for (let i = 0; i < buffer.length - 1; i++) {\n    if (buffer[i] === 0x21 && buffer[i + 1] === 0xF9) {\n      frames += 1;\n      if (frames > 1) return true;\n    }\n  }\n  return false;\n};\n\nconst isAnimatedPng = (buffer) => {\n  if (buffer.length < 8 || buffer.toString('hex', 0, 8) !== '89504e470d0a1a0a') return false;\n  let offset = 8;\n  while (offset + 8 < buffer.length) {\n    const length = buffer.readUInt32BE(offset);\n    const type = buffer.toString('ascii', offset + 4, offset + 8);\n    if (type === 'acTL') return true;\n    offset += 12 + length;\n  }\n  return false;\n};\n\nconst isAnimatedWebP = (buffer) => {\n  if (buffer.length < 16 || buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WEBP') {\n    return false;\n  }\n  for (let i = 12; i < buffer.length - 3; i++) {\n    if (\n      buffer[i] === 0x41 &&\n      buffer[i + 1] === 0x4E &&\n      buffer[i + 2] === 0x49 &&\n      buffer[i + 3] === 0x4D\n    ) {\n      return true;\n    }\n  }\n  return false;\n};\n\nconst detectFormat = (buffer, mimeType = '') => {\n  if (mimeType) return mimeType;\n  const signature = buffer.toString('hex', 0, 4);\n  if (signature === 'ffd8ffe0' || signature === 'ffd8ffe1') return 'image/jpeg';\n  if (signature === '89504e47') return 'image/png';\n  if (buffer.toString('ascii', 0, 3) === 'GIF') return 'image/gif';\n  if (buffer.toString('ascii', 0, 4) === 'RIFF') return 'image/webp';\n  return 'application/octet-stream';\n};\n\nreturn items.map((item) => {\n  const imageData = item.binary?.original;\n  if (!imageData?.data) {\n    item.json.isAnimated = true;\n    item.json.message = 'Missing binary payload';\n    return item;\n  }\n\n  const buffer = Buffer.from(imageData.data, 'base64');\n  const format = detectFormat(buffer, imageData.mimeType);\n  const animated = isAnimatedGif(buffer) || isAnimatedPng(buffer) || isAnimatedWebP(buffer);\n\n  item.json.isAnimated = animated;\n  item.json.originalFormat = format;\n  item.json.originalSizeBytes = buffer.length;\n\n  if (animated) {\n    item.json.message = `Animated image detected (product ${item.json.productHandle || item.json.productId})`;\n  }\n\n  return item;\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -125,7 +129,7 @@
         200
       ],
       "id": "0af242ee-08e3-4a0a-90d1-1e391f53b142",
-      "name": "Detect animation & convert"
+      "name": "Detect animation"
     },
     {
       "parameters": {
@@ -198,6 +202,40 @@
           "name": "Shopify Access Token account"
         }
       }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageSrc && $node[\"Workflow Settings\"].json.cloudinaryCloud ? `https://res.cloudinary.com/${$node[\"Workflow Settings\"].json.cloudinaryCloud}/image/fetch/f_webp,q_${Number($json.webpQuality || 80) || 80}/b64/${Buffer.from($json.imageSrc).toString('base64')}` : '' }}",
+        "responseFormat": "file",
+        "download": true,
+        "binaryPropertyName": "webp",
+        "allowUnauthorizedCerts": true,
+        "options": {
+          "fullResponse": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        460
+      ],
+      "id": "fa82666a-7898-4ba6-9f05-9acb93ba9fe7",
+      "name": "Convert via Cloudinary"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $input.all();\nreturn items.map((item) => {\n  const webpBinary = item.binary?.webp;\n  if (webpBinary?.data) {\n    item.json.webpSizeBytes = Buffer.from(webpBinary.data, 'base64').length;\n    if (!item.json.message) {\n      item.json.message = `Converted image ${item.json.imageId} via Cloudinary`;\n    }\n  } else if (!item.json.message) {\n    item.json.message = 'WebP binary missing after conversion';\n  }\n  return item;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        560
+      ],
+      "id": "1a17d7df-8f44-486a-839c-145ae6e23ab9",
+      "name": "Prepare WebP metadata"
     },
     {
       "parameters": {
@@ -305,7 +343,7 @@
         ],
         [
           {
-            "node": "Update Shopify image",
+            "node": "Convert via Cloudinary",
             "type": "main",
             "index": 0
           }
@@ -328,6 +366,28 @@
         [
           {
             "node": "Log successful upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert via Cloudinary": {
+      "main": [
+        [
+          {
+            "node": "Prepare WebP metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WebP metadata": {
+      "main": [
+        [
+          {
+            "node": "Update Shopify image",
             "type": "main",
             "index": 0
           }
