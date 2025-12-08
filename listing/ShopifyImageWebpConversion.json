@@ -1,0 +1,317 @@
+{
+  "name": "Shopify Image → WebP Sync",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1020,
+        200
+      ],
+      "id": "0fb6b94f-6e18-4c18-a459-2769a46b2e4c",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "resource": "product",
+        "operation": "getAll",
+        "returnAll": false,
+        "additionalFields": {
+          "limit": "={{ Number($env.SHOPIFY_PAGE_SIZE || 50) }}",
+          "fields": "id,title,handle,images"
+        }
+      },
+      "type": "n8n-nodes-base.shopify",
+      "typeVersion": 1,
+      "position": [
+        -780,
+        200
+      ],
+      "id": "c52e664b-0f11-4c30-814c-1fd721f09707",
+      "name": "Get many products",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "dWJgimry1w55uTT3",
+          "name": "Shopify Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst maxProductsEnv = Number($env.SHOPIFY_MAX_PRODUCTS || 0);\nconst maxProducts = Number.isFinite(maxProductsEnv) && maxProductsEnv > 0 ? maxProductsEnv : 0;\nconst webpQuality = Number($env.WEBP_QUALITY || 80) || 80;\n\nconst outputs = [];\nlet processedProducts = 0;\n\nfor (const item of items) {\n  const product = item.json || {};\n  if (!product.id) continue;\n\n  processedProducts += 1;\n  if (maxProducts && processedProducts > maxProducts) break;\n\n  const images = Array.isArray(product.images) ? product.images : [];\n  for (const image of images) {\n    if (!image || !image.id || !image.src) continue;\n    outputs.push({\n      json: {\n        productId: product.id,\n        productHandle: product.handle || '',\n        productTitle: product.title || '',\n        imageId: image.id,\n        imageSrc: image.src,\n        imageAlt: image.alt || '',\n        webpQuality,\n        originalFormat: null,\n        message: null,\n        isAnimated: false\n      }\n    });\n  }\n}\n\nreturn outputs;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        200
+      ],
+      "id": "1cd7ec67-684e-4df7-a61e-8f6a73a6d73e",
+      "name": "Flatten product images"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageSrc }}",
+        "responseFormat": "file",
+        "download": true,
+        "binaryPropertyName": "original",
+        "allowUnauthorizedCerts": true,
+        "ignoreResponseCode": true,
+        "options": {
+          "fullResponse": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        200
+      ],
+      "id": "14e1be3b-139e-4e5b-9c25-84d08af836b2",
+      "name": "Download original image"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const sharp = require('sharp');\nconst items = $input.all();\n\nreturn Promise.all(items.map(async (item) => {\n  const imageData = item.binary?.original;\n\n  if (!imageData?.data) {\n    item.json.isAnimated = true;\n    item.json.message = 'Missing binary payload';\n    return item;\n  }\n\n  const buffer = Buffer.from(imageData.data, 'base64');\n  const metadata = await sharp(buffer, { animated: true }).metadata();\n  const animated = (metadata.pages || 1) > 1;\n  item.json.isAnimated = animated;\n  item.json.originalFormat = metadata.format || imageData.mimeType || null;\n\n  if (animated) {\n    item.json.message = `Animated image skipped (product ${item.json.productHandle || item.json.productId})`;\n    return item;\n  }\n\n  const quality = Number(item.json.webpQuality || 80) || 80;\n  const webpBuffer = await sharp(buffer, { animated: false }).webp({ quality }).toBuffer();\n  const fileNameBase = item.json.productHandle || item.json.productId || 'image';\n\n  item.binary = item.binary || {};\n  item.binary.webp = {\n    data: webpBuffer.toString('base64'),\n    mimeType: 'image/webp',\n    fileName: `${fileNameBase}-${item.json.imageId}.webp`\n  };\n  item.json.webpSizeBytes = webpBuffer.length;\n  item.json.message = `Converted image ${item.json.imageId} to WebP (${webpBuffer.length} bytes)`;\n  return item;\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        200
+      ],
+      "id": "0af242ee-08e3-4a0a-90d1-1e391f53b142",
+      "name": "Detect animation & convert"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "={{ $json.isAnimated }}",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isAnimated }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "animated-condition"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        200,
+        200
+      ],
+      "id": "0bf27b52-9b15-4504-8f5d-a25544fef5fa",
+      "name": "Animated?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $input.all();\nreturn items.map(item => ({\n  json: {\n    status: 'skipped',\n    reason: 'animated',\n    productId: item.json.productId,\n    imageId: item.json.imageId,\n    message: item.json.message || 'Animated image skipped',\n    productHandle: item.json.productHandle\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        60
+      ],
+      "id": "2df2133e-7878-4adc-bda7-bf955c904db1",
+      "name": "Log animated skip"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ `https://${$env.SHOPIFY_STORE_DOMAIN}/admin/api/${$env.SHOPIFY_API_VERSION || '2024-10'}/products/${$json.productId}/images/${$json.imageId}.json` }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyAccessTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ image: { id: $json.imageId, product_id: $json.productId, filename: $binary.webp.fileName, attachment: $binary.webp.data, content_type: 'image/webp', alt: $json.imageAlt || '' } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        340
+      ],
+      "id": "f2cf8038-9330-44cd-9b7b-89d2b8bbcfec",
+      "name": "Update Shopify image",
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "dWJgimry1w55uTT3",
+          "name": "Shopify Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $input.all();\nreturn items.map(item => ({\n  json: {\n    status: 'updated',\n    productId: item.json.productId,\n    imageId: item.json.imageId,\n    productHandle: item.json.productHandle,\n    message: item.json.message || 'Converted to WebP and uploaded',\n    webpSizeBytes: item.json.webpSizeBytes\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        340
+      ],
+      "id": "1f8f531c-925f-4b1e-aeef-3d72b9c3f85f",
+      "name": "Log successful upload"
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        860,
+        200
+      ],
+      "id": "93c1f0bc-a46f-4695-bf5e-01c500a972fd",
+      "name": "Merge logs"
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get many products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many products": {
+      "main": [
+        [
+          {
+            "node": "Flatten product images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten product images": {
+      "main": [
+        [
+          {
+            "node": "Download original image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download original image": {
+      "main": [
+        [
+          {
+            "node": "Detect animation & convert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect animation & convert": {
+      "main": [
+        [
+          {
+            "node": "Animated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Animated?": {
+      "main": [
+        [
+          {
+            "node": "Log animated skip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Shopify image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log animated skip": {
+      "main": [
+        [
+          {
+            "node": "Merge logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Shopify image": {
+      "main": [
+        [
+          {
+            "node": "Log successful upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log successful upload": {
+      "main": [
+        [
+          {
+            "node": "Merge logs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9d2dd6cf-5a39-49c5-bb68-475eabb34b58",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "1kxN2cSNRUx5wSKG",
+  "tags": [
+    {
+      "createdAt": "2024-12-08T10:00:00.000Z",
+      "updatedAt": "2024-12-08T10:00:00.000Z",
+      "id": "shopify-webp",
+      "name": "shopify-webp"
+    }
+  ]
+}
