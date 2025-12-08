@@ -14,11 +14,50 @@
     },
     {
       "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "shopDomain",
+              "value": "dca4de.myshopify.com"
+            },
+            {
+              "name": "apiVersion",
+              "value": "2024-10"
+            }
+          ],
+          "number": [
+            {
+              "name": "pageSize",
+              "value": 50
+            },
+            {
+              "name": "maxProducts",
+              "value": 0
+            },
+            {
+              "name": "webpQuality",
+              "value": 80
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -900,
+        200
+      ],
+      "id": "6e62b076-8455-4b4e-a8b7-7c77da0ee6d8",
+      "name": "Workflow Settings"
+    },
+    {
+      "parameters": {
         "resource": "product",
         "operation": "getAll",
         "returnAll": false,
         "additionalFields": {
-          "limit": "={{ Number($env.SHOPIFY_PAGE_SIZE || 50) }}",
+          "limit": "={{ $node[\"Workflow Settings\"].json.pageSize }}",
           "fields": "id,title,handle,images"
         }
       },
@@ -42,7 +81,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all();\nconst maxProductsEnv = Number($env.SHOPIFY_MAX_PRODUCTS || 0);\nconst maxProducts = Number.isFinite(maxProductsEnv) && maxProductsEnv > 0 ? maxProductsEnv : 0;\nconst webpQuality = Number($env.WEBP_QUALITY || 80) || 80;\n\nconst outputs = [];\nlet processedProducts = 0;\n\nfor (const item of items) {\n  const product = item.json || {};\n  if (!product.id) continue;\n\n  processedProducts += 1;\n  if (maxProducts && processedProducts > maxProducts) break;\n\n  const images = Array.isArray(product.images) ? product.images : [];\n  for (const image of images) {\n    if (!image || !image.id || !image.src) continue;\n    outputs.push({\n      json: {\n        productId: product.id,\n        productHandle: product.handle || '',\n        productTitle: product.title || '',\n        imageId: image.id,\n        imageSrc: image.src,\n        imageAlt: image.alt || '',\n        webpQuality,\n        originalFormat: null,\n        message: null,\n        isAnimated: false\n      }\n    });\n  }\n}\n\nreturn outputs;"
+        "jsCode": "const items = $input.all();\nconst settings = $node[\"Workflow Settings\"]?.json || {};\nconst maxProductsValue = Number(settings.maxProducts) || 0;\nconst webpQuality = Number(settings.webpQuality) || 80;\n\nconst outputs = [];\nlet processedProducts = 0;\n\nfor (const item of items) {\n  const product = item.json || {};\n  if (!product.id) continue;\n\n  processedProducts += 1;\n  if (maxProductsValue && processedProducts > maxProductsValue) break;\n\n  const images = Array.isArray(product.images) ? product.images : [];\n  for (const image of images) {\n    if (!image || !image.id || !image.src) continue;\n    outputs.push({\n      json: {\n        productId: product.id,\n        productHandle: product.handle || '',\n        productTitle: product.title || '',\n        imageId: image.id,\n        imageSrc: image.src,\n        imageAlt: image.alt || '',\n        webpQuality,\n        originalFormat: null,\n        message: null,\n        isAnimated: false\n      }\n    });\n  }\n}\n\nreturn outputs;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -137,7 +176,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ `https://${$env.SHOPIFY_STORE_DOMAIN}/admin/api/${$env.SHOPIFY_API_VERSION || '2024-10'}/products/${$json.productId}/images/${$json.imageId}.json` }}",
+        "url": "={{ `https://${$node[\"Workflow Settings\"].json.shopDomain}/admin/api/${$node[\"Workflow Settings\"].json.apiVersion}/products/${$json.productId}/images/${$json.imageId}.json` }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "shopifyAccessTokenApi",
         "sendBody": true,
@@ -190,6 +229,17 @@
   ],
   "connections": {
     "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Workflow Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Settings": {
       "main": [
         [
           {
