@@ -106,7 +106,7 @@
               "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "false",
+                "operation": "true",
                 "singleValue": true
               },
               "id": "animated-condition"
