@@ -14,6 +14,29 @@
     },
     {
       "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "id": "3d57ac8f-8a52-4d33-9f0c-0f73ea64f2a1",
+              "name": "cloudinaryCloud",
+              "value": "dnpqzyare",
+              "type": "string"
+            },
+            {
+              "id": "a4bfa3ab-1ceb-4de1-99b1-2da3be629ec4",
+              "name": "cloudinaryApiKey",
+              "value": "425135831691668",
+              "type": "string"
+            },
+            {
+              "id": "c8f5f66b-0da9-4622-9054-0adb9e17b3d4",
+              "name": "cloudinaryApiSecret",
+              "value": "_XQrU97vlItfuA_mjZzGKG3mZZY",
+              "type": "string"
+            }
+          ]
+        },
         "options": {}
       },
       "type": "n8n-nodes-base.set",
