@@ -1,0 +1,314 @@
+{
+  "name": "WF2 - Clarification Resolver",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Clarifications",
+          "mode": "id"
+        },
+        "filterByFormula": "AND({Status}='open')",
+        "sort": {
+          "property": "AskedAt",
+          "direction": "desc"
+        },
+        "limit": 1
+      },
+      "name": "Find Open Clarification",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are resolving a clarification. Based on the user's answer and the original question, extract the missing data."
+            },
+            {
+              "role": "assistant",
+              "content": "Question: {{$json.Question}}"
+            },
+            {
+              "role": "user",
+              "content": "Answer: {{$node[\"Telegram Trigger\"].json.message.text}}"
+            }
+          ]
+        }
+      },
+      "name": "OpenAI Parse Answer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.is_new_food_item }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Is New Food Item?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "FoodItems",
+          "mode": "id"
+        },
+        "columnsUi": {
+          "columnValues": [
+            {
+              "fieldId": "Name",
+              "fieldValue": "={{ $json.food_name }}"
+            },
+            {
+              "fieldId": "Per100g_kcal",
+              "fieldValue": "={{ $json.kcal_per_100g }}"
+            }
+          ]
+        }
+      },
+      "name": "Create FoodItem",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "DailyNutrition",
+          "mode": "id"
+        },
+        "columnsUi": {
+          "columnValues": [
+            {
+              "fieldId": "Date",
+              "fieldValue": "={{ $today }}"
+            },
+            {
+              "fieldId": "Kcal",
+              "fieldValue": "={{ $json.kcal_added }}"
+            },
+            {
+              "fieldId": "NeedsClarification",
+              "fieldValue": false
+            }
+          ]
+        }
+      },
+      "name": "Update DailyNutrition",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Clarifications",
+          "mode": "id"
+        },
+        "id": "={{ $node[\"Find Open Clarification\"].json.id }}",
+        "columnsUi": {
+          "columnValues": [
+            {
+              "fieldId": "Status",
+              "fieldValue": "resolved"
+            },
+            {
+              "fieldId": "RawAnswer",
+              "fieldValue": "={{ $node[\"Telegram Trigger\"].json.message.text }}"
+            }
+          ]
+        }
+      },
+      "name": "Close Clarification",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        300
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find Open Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Open Clarification": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Parse Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Parse Answer": {
+      "main": [
+        [
+          {
+            "node": "Is New Food Item?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Food Item?": {
+      "main": [
+        [
+          {
+            "node": "Create FoodItem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update DailyNutrition",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create FoodItem": {
+      "main": [
+        [
+          {
+            "node": "Update DailyNutrition",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update DailyNutrition": {
+      "main": [
+        [
+          {
+            "node": "Close Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

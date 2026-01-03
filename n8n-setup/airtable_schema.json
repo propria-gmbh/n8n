@@ -1,0 +1,117 @@
+{
+  "tables": [
+    {
+      "name": "DailyNutrition",
+      "fields": [
+        { "name": "Date", "type": "Date" },
+        { "name": "DayType", "type": "Single Select", "options": ["training", "rest", "refeed", "unknown"] },
+        { "name": "NutriProtocol", "type": "Link to NutritionProtocols" },
+        { "name": "Kcal", "type": "Number", "precision": 0 },
+        { "name": "P_g", "type": "Number", "precision": 1 },
+        { "name": "C_g", "type": "Number", "precision": 1 },
+        { "name": "F_g", "type": "Number", "precision": 1 },
+        { "name": "Water_ml", "type": "Number", "precision": 0 },
+        { "name": "Source", "type": "Single Select", "options": ["user_confirmed", "ai_estimated", "mixed"] },
+        { "name": "Confidence", "type": "Number", "precision": 2 },
+        { "name": "LastUpdateTS", "type": "DateTime" },
+        { "name": "NeedsClarification", "type": "Checkbox" }
+      ]
+    },
+    {
+      "name": "FoodItems",
+      "fields": [
+        { "name": "Name", "type": "Single Line Text" },
+        { "name": "Aliases", "type": "Long Text" },
+        { "name": "Per100g_kcal", "type": "Number" },
+        { "name": "Per100g_p", "type": "Number" },
+        { "name": "Per100g_c", "type": "Number" },
+        { "name": "Per100g_f", "type": "Number" },
+        { "name": "Source", "type": "Single Select", "options": ["user_manual", "ai_suggested_user_ok"] },
+        { "name": "Confidence", "type": "Number" },
+        { "name": "UsageCount", "type": "Number" },
+        { "name": "LastUsedAt", "type": "DateTime" }
+      ]
+    },
+    {
+      "name": "NutritionProtocols",
+      "fields": [
+        { "name": "Name", "type": "Single Line Text" },
+        { "name": "StartDate", "type": "Date" },
+        { "name": "EndDate", "type": "Date" },
+        { "name": "TargetsJSON", "type": "Long Text" },
+        { "name": "Notes", "type": "Long Text" }
+      ]
+    },
+    {
+      "name": "TrainingProtocols",
+      "fields": [
+        { "name": "Name", "type": "Single Line Text" },
+        { "name": "StartDate", "type": "Date" },
+        { "name": "EndDate", "type": "Date" },
+        { "name": "Notes", "type": "Long Text" }
+      ]
+    },
+    {
+      "name": "TrainingSessions",
+      "fields": [
+        { "name": "TS", "type": "DateTime" },
+        { "name": "Date", "type": "Date" },
+        { "name": "TrainingProtocol", "type": "Link to TrainingProtocols" },
+        { "name": "RawMessage", "type": "Long Text" }
+      ]
+    },
+    {
+      "name": "MigraineEpisodes",
+      "fields": [
+        { "name": "StartTS", "type": "DateTime" },
+        { "name": "EndTS", "type": "DateTime" },
+        { "name": "RawStart", "type": "Long Text" },
+        { "name": "RawEnd", "type": "Long Text" }
+      ]
+    },
+    {
+      "name": "MigraineMeds",
+      "fields": [
+        { "name": "TS", "type": "DateTime" },
+        { "name": "Drug", "type": "Single Line Text" },
+        { "name": "Dose", "type": "Single Line Text" },
+        { "name": "LinkedEpisode", "type": "Link to MigraineEpisodes" },
+        { "name": "RawMessage", "type": "Long Text" }
+      ]
+    },
+    {
+      "name": "WeeklyCheckins",
+      "fields": [
+        { "name": "TS", "type": "DateTime" },
+        { "name": "WeekKey", "type": "Single Line Text" },
+        { "name": "WeightKg", "type": "Number", "precision": 1 },
+        { "name": "BodyFatPct", "type": "Number", "precision": 1 },
+        { "name": "MeasurementsJSON", "type": "Long Text" },
+        { "name": "RawMessage", "type": "Long Text" }
+      ]
+    },
+    {
+      "name": "RawMessages",
+      "fields": [
+        { "name": "TS", "type": "DateTime" },
+        { "name": "InputType", "type": "Single Select", "options": ["text", "voice", "photo", "mixed"] },
+        { "name": "Text", "type": "Long Text" },
+        { "name": "Transcript", "type": "Long Text" },
+        { "name": "Attachments", "type": "Attachments" },
+        { "name": "Status", "type": "Single Line Text" }
+      ]
+    },
+    {
+      "name": "Clarifications",
+      "fields": [
+        { "name": "Status", "type": "Single Select", "options": ["open", "resolved"] },
+        { "name": "Question", "type": "Long Text" },
+        { "name": "AskedAt", "type": "DateTime" },
+        { "name": "Date", "type": "Date" },
+        { "name": "RelatedDay", "type": "Link to DailyNutrition" },
+        { "name": "RawQuestion", "type": "Long Text" },
+        { "name": "RawAnswer", "type": "Long Text" }
+      ]
+    }
+  ]
+}
