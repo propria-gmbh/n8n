@@ -1,0 +1,252 @@
+{
+  "name": "WF3 - Status",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.message.text }}",
+              "operation": "regex",
+              "value2": "status|today"
+            }
+          ]
+        }
+      },
+      "name": "Filter Keywords",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "DailyNutrition",
+          "mode": "id"
+        },
+        "filterByFormula": "IS_SAME({Date}, TODAY(), 'day')",
+        "limit": 1
+      },
+      "name": "Get Today Nutrition",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.DayType }}",
+              "value2": "unknown"
+            }
+          ]
+        }
+      },
+      "name": "DayType Unknown?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+        "text": "What type of day is it today? (training / rest / refeed)",
+        "additionalFields": {}
+      },
+      "name": "Ask DayType",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "NutritionProtocols",
+          "mode": "id"
+        },
+        "filterByFormula": "AND(IS_AFTER(TODAY(), {StartDate}), IS_BEFORE(TODAY(), {EndDate}))",
+        "limit": 1
+      },
+      "name": "Get Active Protocol",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        400
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const daily = $node[\"Get Today Nutrition\"].json;\nconst protocol = $json;\nconst targets = JSON.parse(protocol.TargetsJSON);\nconst dayType = daily.DayType;\nconst target = targets[dayType];\n\nreturn {\n  consumed: {\n    kcal: daily.Kcal,\n    p: daily.P_g,\n    c: daily.C_g,\n    f: daily.F_g\n  },\n  target: target,\n  left: {\n    kcal: target.kcal - daily.Kcal,\n    p: target.p - daily.P_g,\n    c: target.c - daily.C_g,\n    f: target.f - daily.F_g\n  }\n};"
+      },
+      "name": "Calculate Left",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+        "text": "=Today is a {{ $node[\"Get Today Nutrition\"].json.DayType }} day.\n\nConsumed:\n{{ $json.consumed.kcal }} kcal\nP: {{ $json.consumed.p }}g / C: {{ $json.consumed.c }}g / F: {{ $json.consumed.f }}g\n\nLeft:\n{{ $json.left.kcal }} kcal\nP: {{ $json.left.p }}g / C: {{ $json.left.c }}g / F: {{ $json.left.f }}g",
+        "additionalFields": {}
+      },
+      "name": "Send Report",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        400
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Keywords": {
+      "main": [
+        [
+          {
+            "node": "Get Today Nutrition",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Today Nutrition": {
+      "main": [
+        [
+          {
+            "node": "DayType Unknown?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DayType Unknown?": {
+      "main": [
+        [
+          {
+            "node": "Ask DayType",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Active Protocol",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Protocol": {
+      "main": [
+        [
+          {
+            "node": "Calculate Left",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Left": {
+      "main": [
+        [
+          {
+            "node": "Send Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

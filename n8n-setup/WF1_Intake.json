@@ -1,0 +1,450 @@
+{
+  "name": "WF1 - Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "RawMessages",
+          "mode": "id"
+        },
+        "columnsUi": {
+          "columnValues": [
+            {
+              "fieldId": "TS",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "Text",
+              "fieldValue": "={{ $json.message.text }}"
+            },
+            {
+              "fieldId": "InputType",
+              "fieldValue": "={{ $json.message.voice ? 'voice' : ($json.message.photo ? 'photo' : 'text') }}"
+            }
+          ]
+        }
+      },
+      "name": "Create RawMessage",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.InputType }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "voice",
+              "output": 0
+            },
+            {
+              "value2": "photo",
+              "output": 1
+            },
+            {
+              "value2": "text",
+              "output": 2
+            }
+          ]
+        }
+      },
+      "name": "Switch Input Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "binaryData": true,
+        "binaryPropertyName": "data"
+      },
+      "name": "OpenAI Speech to Text",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        100
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4o",
+        "prompt": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Analyze this food image and list ingredients with estimated weights."
+            }
+          ]
+        },
+        "binaryData": true,
+        "binaryPropertyName": "data"
+      },
+      "name": "OpenAI Vision",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a nutrition assistant. Extract food items, quantities, and macros from the text."
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.message.text }}"
+            }
+          ]
+        }
+      },
+      "name": "OpenAI Text Parse",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        500
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "FoodItems",
+          "mode": "id"
+        },
+        "returnAll": true
+      },
+      "name": "Search FoodItems",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        300
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.confidence }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Data Sufficient?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "DailyNutrition",
+          "mode": "id"
+        },
+        "columnsUi": {
+          "columnValues": [
+            {
+              "fieldId": "Date",
+              "fieldValue": "={{ $today }}"
+            },
+            {
+              "fieldId": "Kcal",
+              "fieldValue": "={{ $json.kcal }}"
+            }
+          ]
+        }
+      },
+      "name": "Update DailyNutrition",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        200
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Clarifications",
+          "mode": "id"
+        },
+        "columnsUi": {
+          "columnValues": [
+            {
+              "fieldId": "Question",
+              "fieldValue": "={{ $json.clarification_question }}"
+            },
+            {
+              "fieldId": "Status",
+              "fieldValue": "open"
+            }
+          ]
+        }
+      },
+      "name": "Create Clarification",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        400
+      ],
+      "credentials": {
+        "airtableApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.clarification_question }}",
+        "additionalFields": {}
+      },
+      "name": "Ask User",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        400
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create RawMessage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create RawMessage": {
+      "main": [
+        [
+          {
+            "node": "Switch Input Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Input Type": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Speech to Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI Vision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI Text Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Speech to Text": {
+      "main": [
+        [
+          {
+            "node": "Search FoodItems",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Vision": {
+      "main": [
+        [
+          {
+            "node": "Search FoodItems",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Text Parse": {
+      "main": [
+        [
+          {
+            "node": "Search FoodItems",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search FoodItems": {
+      "main": [
+        [
+          {
+            "node": "Data Sufficient?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Sufficient?": {
+      "main": [
+        [
+          {
+            "node": "Update DailyNutrition",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Clarification": {
+      "main": [
+        [
+          {
+            "node": "Ask User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
