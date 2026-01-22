@@ -1,0 +1,542 @@
+{
+  "name": "Image Rework MVP",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1600,
+        300
+      ],
+      "id": "6feef024-a81f-4442-ad06-40452ac4948f",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "fields": {
+          "values": [
+            {
+              "name": "reference_url",
+              "type": "stringValue",
+              "stringValue": "https://example.com/reference.jpg"
+            },
+            {
+              "name": "runId",
+              "type": "stringValue",
+              "stringValue": "={{ $now.toMillis() }}"
+            },
+            {
+              "name": "nanobanana_base64_path",
+              "type": "stringValue",
+              "stringValue": "data.image_base64"
+            },
+            {
+              "name": "front_prompt",
+              "type": "stringValue",
+              "stringValue": "<<FRONT_PROMPT_PLACEHOLDER>>"
+            },
+            {
+              "name": "profile_prompt",
+              "type": "stringValue",
+              "stringValue": "<<PROFILE_PROMPT_PLACEHOLDER>>"
+            }
+          ]
+        },
+        "include": "none",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        -1400,
+        300
+      ],
+      "id": "0af88e66-d757-4921-b41a-5d45c857fc5b",
+      "name": "Set Reference"
+    },
+    {
+      "parameters": {
+        "name": "={{ $node[\"Set Reference\"].json.runId }}",
+        "driveId": {
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "mode": "id",
+          "value": "={{ $env.GDRIVE_IMAGE_REWORK_FOLDER_ID }}",
+          "cachedResultName": "Image Rework"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1200,
+        300
+      ],
+      "id": "9e4a04b2-086f-4d84-a745-d17db39d7a52",
+      "name": "Google Drive - Create Folder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "googleDriveOauth2",
+          "name": "Google Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $node[\"Set Reference\"].json.reference_url }}",
+        "authentication": "none",
+        "options": {
+          "response": {
+            "responseFormat": "file"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1000,
+        300
+      ],
+      "id": "a278f43c-f6df-4a97-9cfb-376596a88907",
+      "name": "HTTP Request - Download reference"
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "data",
+        "name": "={{ 'reference_' + $node[\"Set Reference\"].json.runId + '.' + (($node[\"Set Reference\"].json.reference_url || '').split('?')[0].split('.').pop() || 'jpg') }}",
+        "driveId": {
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "mode": "id",
+          "value": "={{ $node[\"Google Drive - Create Folder\"].json.id }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -800,
+        300
+      ],
+      "id": "bb952307-8b6c-4171-9367-8d6e75ea1bf2",
+      "name": "Google Drive - Upload reference",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "googleDriveOauth2",
+          "name": "Google Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NANOBANANA_API_URL }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"image_url\": $node[\"Set Reference\"].json.reference_url, \"prompt\": $node[\"Set Reference\"].json.front_prompt, \"view\": \"front\" } }}",
+        "options": {
+          "response": {
+            "responseFormat": "json"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -600,
+        150
+      ],
+      "id": "87b0107b-bc17-40de-876c-56caa227df51",
+      "name": "HTTP Request - NanoBanana FRONT",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nanoBananaApi",
+          "name": "NanoBanana API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "jsonToBinary",
+        "convertAllData": false,
+        "sourceKey": "={{ $node[\"Set Reference\"].json.nanobanana_base64_path }}",
+        "destinationKey": "image",
+        "options": {
+          "dataIsBase64": true,
+          "fileName": "front.png",
+          "mimeType": "image/png"
+        }
+      },
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        150
+      ],
+      "id": "1b1d5d13-3155-4375-8147-3550a073e714",
+      "name": "Move Binary Data - FRONT"
+    },
+    {
+      "parameters": {
+        "operation": "resize",
+        "dataPropertyName": "image",
+        "width": 9999,
+        "height": 1250,
+        "resizeOption": "maximumArea",
+        "options": {
+          "destinationKey": "image",
+          "format": "webp"
+        }
+      },
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        150
+      ],
+      "id": "4fe0f769-b384-46e8-b3a2-cdd76aee742a",
+      "name": "Edit Image - FRONT"
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "image",
+        "name": "={{ 'front_' + $node[\"Set Reference\"].json.runId + '.webp' }}",
+        "driveId": {
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "mode": "id",
+          "value": "={{ $node[\"Google Drive - Create Folder\"].json.id }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        0,
+        150
+      ],
+      "id": "f0f9cb05-e5d4-4fec-b404-e13d557932e2",
+      "name": "Google Drive - Upload front.webp",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "googleDriveOauth2",
+          "name": "Google Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NANOBANANA_API_URL }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"image_url\": $node[\"Set Reference\"].json.reference_url, \"prompt\": $node[\"Set Reference\"].json.profile_prompt, \"view\": \"profile\" } }}",
+        "options": {
+          "response": {
+            "responseFormat": "json"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -600,
+        450
+      ],
+      "id": "523f61e3-a6a2-42d4-8ade-d9ee39a7a9ca",
+      "name": "HTTP Request - NanoBanana PROFILE",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nanoBananaApi",
+          "name": "NanoBanana API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "jsonToBinary",
+        "convertAllData": false,
+        "sourceKey": "={{ $node[\"Set Reference\"].json.nanobanana_base64_path }}",
+        "destinationKey": "image",
+        "options": {
+          "dataIsBase64": true,
+          "fileName": "profile.png",
+          "mimeType": "image/png"
+        }
+      },
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        450
+      ],
+      "id": "5b296577-d744-481a-925f-d1d3dd120da8",
+      "name": "Move Binary Data - PROFILE"
+    },
+    {
+      "parameters": {
+        "operation": "resize",
+        "dataPropertyName": "image",
+        "width": 9999,
+        "height": 1250,
+        "resizeOption": "maximumArea",
+        "options": {
+          "destinationKey": "image",
+          "format": "webp"
+        }
+      },
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        450
+      ],
+      "id": "fa3ec1c4-b8f3-4475-b19e-ca6d47c40487",
+      "name": "Edit Image - PROFILE"
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "image",
+        "name": "={{ 'profile_' + $node[\"Set Reference\"].json.runId + '.webp' }}",
+        "driveId": {
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "mode": "id",
+          "value": "={{ $node[\"Google Drive - Create Folder\"].json.id }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        0,
+        450
+      ],
+      "id": "2273114d-4083-4433-9ac9-cbdb4b841e63",
+      "name": "Google Drive - Upload profile.webp",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "googleDriveOauth2",
+          "name": "Google Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "fields": {
+          "values": [
+            {
+              "name": "runId",
+              "type": "stringValue",
+              "stringValue": "={{ $node[\"Set Reference\"].json.runId }}"
+            },
+            {
+              "name": "driveFolderId",
+              "type": "stringValue",
+              "stringValue": "={{ $node[\"Google Drive - Create Folder\"].json.id }}"
+            },
+            {
+              "name": "referenceFileId",
+              "type": "stringValue",
+              "stringValue": "={{ $node[\"Google Drive - Upload reference\"].json.id }}"
+            },
+            {
+              "name": "frontFileId",
+              "type": "stringValue",
+              "stringValue": "={{ $node[\"Google Drive - Upload front.webp\"].json.id }}"
+            },
+            {
+              "name": "profileFileId",
+              "type": "stringValue",
+              "stringValue": "={{ $node[\"Google Drive - Upload profile.webp\"].json.id }}"
+            }
+          ]
+        },
+        "include": "none",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        200,
+        300
+      ],
+      "id": "53da5cb0-1065-4fd1-939c-31cd1a26e568",
+      "name": "Final Response"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Reference": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Create Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive - Create Folder": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Download reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Download reference": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Upload reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive - Upload reference": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - NanoBanana FRONT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - NanoBanana FRONT": {
+      "main": [
+        [
+          {
+            "node": "Move Binary Data - FRONT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move Binary Data - FRONT": {
+      "main": [
+        [
+          {
+            "node": "Edit Image - FRONT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Image - FRONT": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Upload front.webp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive - Upload front.webp": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - NanoBanana PROFILE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - NanoBanana PROFILE": {
+      "main": [
+        [
+          {
+            "node": "Move Binary Data - PROFILE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move Binary Data - PROFILE": {
+      "main": [
+        [
+          {
+            "node": "Edit Image - PROFILE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Image - PROFILE": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Upload profile.webp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive - Upload profile.webp": {
+      "main": [
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2d9d1ede-034f-4cff-9036-7670b72dec81",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "266098bd-7716-4bac-92e7-f255c38171e3",
+  "tags": []
+}
