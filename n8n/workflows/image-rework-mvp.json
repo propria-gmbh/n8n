@@ -58,6 +58,8 @@
     },
     {
       "parameters": {
+        "resource": "folder",
+        "operation": "create",
         "name": "={{ $node[\"Set Reference\"].json.runId }}",
         "driveId": {
           "mode": "list",
@@ -107,6 +109,8 @@
     },
     {
       "parameters": {
+        "resource": "file",
+        "operation": "upload",
         "inputDataFieldName": "data",
         "name": "={{ 'reference_' + $node[\"Set Reference\"].json.runId + '.' + (($node[\"Set Reference\"].json.reference_url || '').split('?')[0].split('.').pop() || 'jpg') }}",
         "driveId": {
@@ -209,6 +213,8 @@
     },
     {
       "parameters": {
+        "resource": "file",
+        "operation": "upload",
         "inputDataFieldName": "image",
         "name": "={{ 'front_' + $node[\"Set Reference\"].json.runId + '.webp' }}",
         "driveId": {
@@ -311,6 +317,8 @@
     },
     {
       "parameters": {
+        "resource": "file",
+        "operation": "upload",
         "inputDataFieldName": "image",
         "name": "={{ 'profile_' + $node[\"Set Reference\"].json.runId + '.webp' }}",
         "driveId": {
