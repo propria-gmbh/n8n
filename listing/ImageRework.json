@@ -1,0 +1,283 @@
+{
+  "name": "Image rework",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        0
+      ],
+      "id": "2ea2e1f9-bbeb-4ea5-95c6-4052c4c2925a",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "product",
+        "operation": "getAll",
+        "additionalFields": {
+          "ids": "15283957367162"
+        }
+      },
+      "type": "n8n-nodes-base.shopify",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        0
+      ],
+      "id": "38073009-2fec-4ffe-a71d-ef4faa7f1964",
+      "name": "Get many products",
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "oRuWNm3bO01woKfo",
+          "name": "Shopify Access Token Havgaard"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "images",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        128,
+        0
+      ],
+      "id": "39d3aaf6-aa6d-4f4c-b9da-3a74c93b8139",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "destinationKey": "attachment",
+        "options": {
+          "keepSource": "json"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        0
+      ],
+      "id": "d9283f87-13c6-49e3-8607-efd87c3bd669",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://nri00m-ei.myshopify.com/admin/api/2025-07/products/{{$json.product_id}}/images/{{$json.id}}.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyAccessTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"image\": {\n    \"id\": \"={{ $json.id }}\",\n    \"attachment\": \"={{ $json.attachment }}\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        976,
+        16
+      ],
+      "id": "1a943af0-42a8-4ca1-9c59-b16a4431405e",
+      "name": "PUT Shopify",
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "oRuWNm3bO01woKfo",
+          "name": "Shopify Access Token Havgaard"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        736,
+        0
+      ],
+      "id": "b29dfae3-54ec-45b8-b58a-0e8b8a547dd3",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "amount": 0.45
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        16
+      ],
+      "id": "84be860e-8915-4d39-a5fa-613aab8ced0b",
+      "name": "Wait",
+      "webhookId": "b34d84a7-970b-4980-88ea-fc5db724efa4"
+    },
+    {
+      "parameters": {
+        "url": "https://image-api.photoroom.com/v2/edit",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "=imageUrl",
+              "value": "={{ $json.src }}"
+            },
+            {
+              "name": "removeBackground",
+              "value": "true"
+            },
+            {
+              "name": "background.color",
+              "value": "F2F2F2"
+            },
+            {
+              "name": "outputSize",
+              "value": "1000x1250"
+            },
+            {
+              "name": "scaling",
+              "value": "fit"
+            },
+            {
+              "name": "padding",
+              "value": "0.12"
+            },
+            {
+              "name": "export.format",
+              "value": "webp"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "sk_pr_default_035a63bcb696630951e8281c88080ca92dee22b9"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        320,
+        0
+      ],
+      "id": "68c7b60e-76a9-4ea1-8af5-c00e7d2687ce",
+      "name": "Photoroom"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get many products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many products": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Photoroom",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "PUT Shopify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PUT Shopify": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Photoroom": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3aaf826c-c478-4395-af24-81e1ee8f67d0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "874b8b595b8c35c6ad0480eb2e6d2c9dcb3d2674b017cfcfab20dbd92e7f9969"
+  },
+  "id": "kfSqUBw9LldSgVyL",
+  "tags": []
+}
